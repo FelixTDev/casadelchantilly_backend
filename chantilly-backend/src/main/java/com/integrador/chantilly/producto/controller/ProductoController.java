@@ -2,6 +2,9 @@ package com.integrador.chantilly.producto.controller;
 
 import com.integrador.chantilly.producto.dto.ProductoDTO;
 import com.integrador.chantilly.producto.service.ProductoService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,6 +32,14 @@ public class ProductoController {
     @GetMapping
     public ResponseEntity<List<ProductoDTO>> listarTodos() {
         return ResponseEntity.ok(productoService.listarTodos());
+    }
+
+    @GetMapping("/paginado")
+    public ResponseEntity<Page<ProductoDTO>> listarPaginado(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        PageRequest pageable = PageRequest.of(page, size, Sort.by("nombre").ascending());
+        return ResponseEntity.ok(productoService.listarPaginado(pageable));
     }
 
     @GetMapping("/{id}")

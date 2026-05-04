@@ -20,6 +20,8 @@ public class CrearPedidoRequest {
 
     private String notasCliente;
 
+    private String codigoCupon;
+
     public String getModalidadEntrega() { return modalidadEntrega; }
     public void setModalidadEntrega(String modalidadEntrega) { this.modalidadEntrega = modalidadEntrega; }
     public Integer getIdDireccion() { return idDireccion; }
@@ -30,4 +32,6 @@ public class CrearPedidoRequest {
     public void setHoraEntrega(LocalTime horaEntrega) { this.horaEntrega = horaEntrega; }
     public String getNotasCliente() { return notasCliente; }
     public void setNotasCliente(String notasCliente) { this.notasCliente = notasCliente; }
+    public String getCodigoCupon() { return codigoCupon; }
+    public void setCodigoCupon(String codigoCupon) { this.codigoCupon = codigoCupon; }
 }

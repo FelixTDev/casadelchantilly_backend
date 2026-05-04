@@ -64,6 +64,7 @@ public class PromocionService {
         promocion.setFechaInicio(dto.getFechaInicio());
         promocion.setFechaFin(dto.getFechaFin());
         promocion.setActivo(dto.getActivo() == null ? true : dto.getActivo());
+        promocion.setCodigoCupon(dto.getCodigoCupon() != null ? dto.getCodigoCupon().trim().toUpperCase() : null);
 
         Set<Producto> productos = new HashSet<>();
         if (dto.getProductoIds() != null && !dto.getProductoIds().isEmpty()) {
@@ -83,6 +84,7 @@ public class PromocionService {
         dto.setFechaFin(promocion.getFechaFin());
         dto.setActivo(promocion.getActivo());
         dto.setProductoIds(promocion.getProductos().stream().map(Producto::getId).toList());
+        dto.setCodigoCupon(promocion.getCodigoCupon());
         return dto;
     }
 }

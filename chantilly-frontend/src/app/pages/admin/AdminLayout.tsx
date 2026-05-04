@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
-import { LayoutDashboard, Package, ShoppingBag, Tag, BarChart3, AlertTriangle, Menu, X, LogOut, Home } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingBag, Tag, BarChart3, AlertTriangle, Menu, X, LogOut, Home, MessageSquare, Users } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 
 const NAV = [
@@ -10,6 +10,8 @@ const NAV = [
   { path: "/admin/promociones", label: "Promociones", icon: Tag },
   { path: "/admin/reportes", label: "Reportes", icon: BarChart3 },
   { path: "/admin/alertas", label: "Alertas Stock", icon: AlertTriangle },
+  { path: "/admin/reclamos", label: "Reclamos", icon: MessageSquare },
+  { path: "/admin/usuarios", label: "Usuarios", icon: Users },
 ];
 
 export default function AdminLayout() {

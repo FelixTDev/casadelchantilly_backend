@@ -1,4 +1,4 @@
-﻿import axiosInstance from "../lib/axiosInstance";
+import axiosInstance from "../lib/axiosInstance";
 
 export interface CrearPedidoRequest {
   modalidadEntrega: "DELIVERY" | "RECOJO_TIENDA";
@@ -6,6 +6,7 @@ export interface CrearPedidoRequest {
   fechaEntrega: string;
   horaEntrega?: string | null;
   notasCliente?: string;
+  codigoCupon?: string;
 }
 
 export interface PedidoItemApi {

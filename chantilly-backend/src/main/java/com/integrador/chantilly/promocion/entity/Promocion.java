@@ -46,6 +46,9 @@ public class Promocion {
     @Column(nullable = false)
     private Boolean activo;
 
+    @Column(name = "codigo_cupon", unique = true, length = 50)
+    private String codigoCupon;
+
     @Column(name = "creado_en", insertable = false, updatable = false)
     private LocalDateTime creadoEn;
 
@@ -115,6 +118,14 @@ public class Promocion {
 
     public void setActivo(Boolean activo) {
         this.activo = activo;
+    }
+
+    public String getCodigoCupon() {
+        return codigoCupon;
+    }
+
+    public void setCodigoCupon(String codigoCupon) {
+        this.codigoCupon = codigoCupon;
     }
 
     public LocalDateTime getCreadoEn() {

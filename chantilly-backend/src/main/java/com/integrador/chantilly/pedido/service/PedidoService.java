@@ -19,17 +19,23 @@ import com.integrador.chantilly.producto.entity.AlertaStock;
 import com.integrador.chantilly.producto.entity.Producto;
 import com.integrador.chantilly.producto.repository.AlertaStockRepository;
 import com.integrador.chantilly.producto.repository.ProductoRepository;
+import com.integrador.chantilly.promocion.entity.Promocion;
+import com.integrador.chantilly.promocion.repository.PromocionRepository;
 import com.integrador.chantilly.usuario.entity.Direccion;
 import com.integrador.chantilly.usuario.entity.Usuario;
 import com.integrador.chantilly.usuario.repository.DireccionRepository;
 import com.integrador.chantilly.usuario.repository.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -57,6 +63,10 @@ public class PedidoService {
     private final DireccionRepository direccionRepository;
     private final UsuarioRepository usuarioRepository;
     private final NotificacionService notificacionService;
+    private final PromocionRepository promocionRepository;
+
+    @Value("${app.delivery.costo:5.00}")
+    private BigDecimal costoDelivery;
 
     public PedidoService(PedidoRepository pedidoRepository,
                         PedidoItemRepository pedidoItemRepository,
@@ -67,7 +77,8 @@ public class PedidoService {
                         AlertaStockRepository alertaStockRepository,
                         DireccionRepository direccionRepository,
                         UsuarioRepository usuarioRepository,
-                        NotificacionService notificacionService) {
+                        NotificacionService notificacionService,
+                        PromocionRepository promocionRepository) {
         this.pedidoRepository = pedidoRepository;
         this.pedidoItemRepository = pedidoItemRepository;
         this.historialEstadoRepository = historialEstadoRepository;
@@ -78,6 +89,7 @@ public class PedidoService {
         this.direccionRepository = direccionRepository;
         this.usuarioRepository = usuarioRepository;
         this.notificacionService = notificacionService;
+        this.promocionRepository = promocionRepository;
     }
 
     @Transactional
@@ -102,8 +114,8 @@ public class PedidoService {
                 .map(i -> i.getPrecioUnitario().multiply(BigDecimal.valueOf(i.getCantidad())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal costoEnvio = "DELIVERY".equals(modalidad) ? new BigDecimal("5.00") : BigDecimal.ZERO;
-        BigDecimal descuento = BigDecimal.ZERO;
+        BigDecimal costoEnvio = "DELIVERY".equals(modalidad) ? costoDelivery : BigDecimal.ZERO;
+        BigDecimal descuento = calcularDescuentoCupon(req.getCodigoCupon(), subtotal);
         BigDecimal total = subtotal.add(costoEnvio).subtract(descuento);
 
         Pedido pedido = new Pedido();
@@ -143,11 +155,18 @@ public class PedidoService {
             pi.setPersonalizacion(item.getNotas());
             pedidoItemRepository.save(pi);
 
-            producto.setStock(stockActual - cantidad);
-            if (producto.getStock() <= 0) {
-                producto.setDisponible(false);
+            try {
+                producto.setStock(stockActual - cantidad);
+                if (producto.getStock() <= 0) {
+                    producto.setDisponible(false);
+                }
+                productoRepository.saveAndFlush(producto);
+            } catch (OptimisticLockingFailureException e) {
+                throw new RuntimeException(
+                    "El stock del producto '" + producto.getNombre() + "' varió durante su compra. " +
+                    "Por favor, actualice su carrito e intente de nuevo."
+                );
             }
-            productoRepository.save(producto);
 
             int stockMinimo = producto.getStockMinimo() == null ? 0 : producto.getStockMinimo();
             if (producto.getStock() <= stockMinimo) {
@@ -252,6 +271,37 @@ public class PedidoService {
             }
         }
     }
+
+    private BigDecimal calcularDescuentoCupon(String codigoCupon, BigDecimal subtotal) {
+        if (codigoCupon == null || codigoCupon.isBlank()) {
+            return BigDecimal.ZERO;
+        }
+
+        Optional<Promocion> opt = promocionRepository.findByCodigoCuponIgnoreCase(codigoCupon.trim());
+        if (opt.isEmpty()) {
+            throw new RuntimeException("Cupon no encontrado: " + codigoCupon);
+        }
+
+        Promocion promo = opt.get();
+        LocalDate hoy = LocalDate.now();
+
+        if (!Boolean.TRUE.equals(promo.getActivo())) {
+            throw new RuntimeException("El cupon no esta activo");
+        }
+        if (hoy.isBefore(promo.getFechaInicio()) || hoy.isAfter(promo.getFechaFin())) {
+            throw new RuntimeException("El cupon esta vencido o aun no esta vigente");
+        }
+
+        String tipo = promo.getTipo() != null ? promo.getTipo().toUpperCase() : "";
+        return switch (tipo) {
+            case "PORCENTAJE" -> subtotal
+                    .multiply(promo.getValor())
+                    .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            case "MONTO_FIJO" -> promo.getValor().min(subtotal);
+            default -> BigDecimal.ZERO;
+        };
+    }
+
 
     private String normalizarModalidad(String modalidad) {
         if (modalidad == null) {

@@ -34,6 +34,7 @@ export interface PromocionApi {
   fechaFin: string;
   activo?: boolean;
   productoIds?: number[];
+  codigoCupon?: string;
 }
 
 export const productoService = {

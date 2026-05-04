@@ -14,6 +14,7 @@ public class PromocionDTO {
     private LocalDate fechaFin;
     private Boolean activo;
     private List<Integer> productoIds;
+    private String codigoCupon;
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
@@ -33,4 +34,6 @@ public class PromocionDTO {
     public void setActivo(Boolean activo) { this.activo = activo; }
     public List<Integer> getProductoIds() { return productoIds; }
     public void setProductoIds(List<Integer> productoIds) { this.productoIds = productoIds; }
+    public String getCodigoCupon() { return codigoCupon; }
+    public void setCodigoCupon(String codigoCupon) { this.codigoCupon = codigoCupon; }
 }

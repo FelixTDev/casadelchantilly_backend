@@ -2,10 +2,13 @@ package com.integrador.chantilly.pedido.controller;
 
 import com.integrador.chantilly.pedido.dto.CrearPedidoRequest;
 import com.integrador.chantilly.pedido.dto.PedidoDTO;
+import com.integrador.chantilly.pedido.service.BoletaService;
 import com.integrador.chantilly.pedido.service.PedidoService;
 import com.integrador.chantilly.usuario.repository.UsuarioRepository;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,10 +28,12 @@ import java.util.Map;
 public class PedidoController {
 
     private final PedidoService pedidoService;
+    private final BoletaService boletaService;
     private final UsuarioRepository usuarioRepository;
 
-    public PedidoController(PedidoService pedidoService, UsuarioRepository usuarioRepository) {
+    public PedidoController(PedidoService pedidoService, BoletaService boletaService, UsuarioRepository usuarioRepository) {
         this.pedidoService = pedidoService;
+        this.boletaService = boletaService;
         this.usuarioRepository = usuarioRepository;
     }
 
@@ -66,6 +71,15 @@ public class PedidoController {
     public ResponseEntity<Void> cancelarPedido(@PathVariable Integer id, Authentication authentication) {
         pedidoService.cancelarPedido(id, obtenerUsuarioId(authentication));
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/boleta")
+    public ResponseEntity<byte[]> descargarBoleta(@PathVariable Integer id) {
+        byte[] pdf = boletaService.generarBoleta(id);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", "boleta-" + id + ".pdf");
+        return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
     }
 
     private Integer obtenerUsuarioId(Authentication authentication) {

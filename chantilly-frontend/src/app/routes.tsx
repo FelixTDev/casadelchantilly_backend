@@ -26,6 +26,8 @@ import AdminOrders from "./pages/admin/AdminOrders";
 import Promotions from "./pages/admin/Promotions";
 import Reports from "./pages/admin/Reports";
 import StockAlerts from "./pages/admin/StockAlerts";
+import AdminClaims from "./pages/admin/AdminClaims";
+import AdminUsers from "./pages/admin/AdminUsers";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -61,6 +63,8 @@ export const router = createBrowserRouter([
           { path: "promociones", Component: Promotions },
           { path: "reportes", Component: Reports },
           { path: "alertas", Component: StockAlerts },
+          { path: "reclamos", Component: AdminClaims },
+          { path: "usuarios", Component: AdminUsers },
         ],
       },
       { path: "*", Component: NotFound },

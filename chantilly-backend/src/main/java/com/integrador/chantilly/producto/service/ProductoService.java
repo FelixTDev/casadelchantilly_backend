@@ -7,6 +7,8 @@ import com.integrador.chantilly.producto.entity.Producto;
 import com.integrador.chantilly.producto.repository.AlertaStockRepository;
 import com.integrador.chantilly.producto.repository.CategoriaRepository;
 import com.integrador.chantilly.producto.repository.ProductoRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,10 @@ public class ProductoService {
 
     public List<ProductoDTO> listarTodos() {
         return productoRepository.findByDisponibleTrue().stream().map(this::toDto).toList();
+    }
+
+    public Page<ProductoDTO> listarPaginado(Pageable pageable) {
+        return productoRepository.findByDisponibleTrue(pageable).map(this::toDto);
     }
 
     public List<ProductoDTO> listarPorCategoria(Integer categoriaId) {

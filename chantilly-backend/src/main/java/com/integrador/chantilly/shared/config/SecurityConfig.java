@@ -66,6 +66,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/reclamos").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/reclamos/*/resolver").hasAuthority("ADMIN")
                         .requestMatchers("/api/reportes/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/usuarios/admin/**").hasAuthority("ADMIN")
                         .requestMatchers("/api/usuarios/**").authenticated()
                         .requestMatchers("/api/carrito/**").authenticated()
                         .requestMatchers("/api/pedidos/**").authenticated()

@@ -1,11 +1,29 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Package, ChevronRight } from "lucide-react";
+import { Package, ChevronRight, FileDown } from "lucide-react";
 import { StatusBadge, toUiStatus } from "../components/shared";
 import { pedidoService, PedidoApi } from "../../services/pedidoService";
+import axiosInstance from "../../lib/axiosInstance";
 
 export default function MyOrders() {
   const [orders, setOrders] = useState<PedidoApi[]>([]);
+
+  const descargarBoleta = async (id: number) => {
+    try {
+      const response = await axiosInstance.get(`/pedidos/${id}/boleta`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `boleta-${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Error descargando boleta", e);
+      alert("No se pudo descargar la boleta");
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -39,6 +57,13 @@ export default function MyOrders() {
                 <div className="flex items-center gap-4">
                   <StatusBadge status={toUiStatus(order.estado)} />
                   <span className="text-[#D32F2F]" style={{ fontWeight: 700 }}>S/ {Number(order.total || 0).toFixed(2)}</span>
+                  {order.estado === "ENTREGADO" && (
+                    <button onClick={(e) => { e.preventDefault(); descargarBoleta(order.id); }}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-[#D32F2F] text-white rounded-lg text-xs font-semibold hover:bg-[#B71C1C] transition"
+                      title="Descargar Boleta">
+                      <FileDown className="w-4 h-4" /> Boleta
+                    </button>
+                  )}
                   <ChevronRight className="w-5 h-5 text-gray-400" />
                 </div>
               </div>

@@ -1,8 +1,9 @@
-﻿import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import axios from "axios";
 import { CartItem, Product } from "../data/mock-data";
 import { authService, RegisterData } from "../../services/authService";
 import { carritoService, CarritoApi } from "../../services/carritoService";
+import { useCartStore } from "../../services/useCartStore";
 
 interface User {
   name: string;
@@ -49,28 +50,30 @@ function mapCarritoApiToLocal(cartApi: CarritoApi): CartItem[] {
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const cartStore = useCartStore();
   const [isCartOpen, setCartOpen] = useState(false);
   const [isLoggedIn, setLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<User>({ name: "Maria", lastName: "Garcia", email: "maria@email.com", phone: "987654321" });
 
+  // Alias para que el resto del código siga funcionando igual
+  const cart = cartStore.cart;
+
   const doLocalLogout = () => {
     setLoggedIn(false);
     setIsAdmin(false);
-    setCart([]);
+    cartStore._clearLocal();
     localStorage.removeItem("chantilly_token");
     localStorage.removeItem("chantilly_user");
   };
 
   const syncCartFromApi = async () => {
     try {
-      const response = await carritoService.getCarrito();
-      setCart(mapCarritoApiToLocal(response.data));
+      await cartStore.syncFromApi();
       return true;
     } catch {
-      setCart([]);
+      cartStore._clearLocal();
       return false;
     }
   };
@@ -98,75 +101,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addToCart = async (p: Product, qty = 1, customization?: string) => {
-    if (!isLoggedIn || isAdmin) {
-      setCart((prev) => {
-        const existing = prev.find((i) => i.id === p.id);
-        if (existing) return prev.map((i) => (i.id === p.id ? { ...i, quantity: i.quantity + qty } : i));
-        return [...prev, { ...p, quantity: qty, customization }];
-      });
-      setCartOpen(true);
-      return;
-    }
-
-    try {
-      const response = await carritoService.agregarItem({
-        productoId: p.id,
-        cantidad: qty,
-        notas: customization,
-      });
-      setCart(mapCarritoApiToLocal(response.data));
-      setCartOpen(true);
-    } catch (error) {
-      console.error("Error agregando al carrito", error);
-    }
+    await cartStore.addToCart(p, qty, customization, isLoggedIn, isAdmin);
+    setCartOpen(true);
   };
 
   const removeFromCart = async (id: number) => {
-    if (!isLoggedIn || isAdmin) {
-      setCart((prev) => prev.filter((i) => i.id !== id));
-      return;
-    }
-    try {
-      const response = await carritoService.eliminarItem(id);
-      setCart(mapCarritoApiToLocal(response.data));
-    } catch (error) {
-      console.error("Error eliminando item", error);
-    }
+    await cartStore.removeFromCart(id, isLoggedIn, isAdmin);
   };
 
   const updateQty = async (id: number, qty: number) => {
-    if (!isLoggedIn || isAdmin) {
-      if (qty <= 0) {
-        setCart((prev) => prev.filter((i) => i.id !== id));
-        return;
-      }
-      setCart((prev) => prev.map((i) => (i.id === id ? { ...i, quantity: qty } : i)));
-      return;
-    }
-
-    try {
-      if (qty <= 0) {
-        await removeFromCart(id);
-      } else {
-        const response = await carritoService.actualizarCantidad(id, qty);
-        setCart(mapCarritoApiToLocal(response.data));
-      }
-    } catch (error) {
-      console.error("Error actualizando cantidad", error);
-    }
+    await cartStore.updateQty(id, qty, isLoggedIn, isAdmin);
   };
 
   const clearCart = async () => {
-    if (!isLoggedIn || isAdmin) {
-      setCart([]);
-      return;
-    }
-    try {
-      await carritoService.vaciarCarrito();
-      setCart([]);
-    } catch (error) {
-      console.error("Error vaciando carrito", error);
-    }
+    await cartStore.clearCart(isLoggedIn, isAdmin);
   };
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
