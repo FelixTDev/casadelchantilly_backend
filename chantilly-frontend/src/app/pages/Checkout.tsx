@@ -7,6 +7,7 @@ import { usuarioService, DireccionApi } from "../../services/usuarioService";
 import { pedidoService } from "../../services/pedidoService";
 import { pagoService } from "../../services/pagoService";
 import { productoService, PromocionApi } from "../../services/productoService";
+import { toast } from "sonner";
 
 const PAYMENT_OPTIONS = [
   { value: "EFECTIVO", label: "Efectivo" },
@@ -111,7 +112,7 @@ export default function Checkout() {
     } catch (error) {
       console.error("Error creando pedido", error);
       const msg = (error as any)?.response?.data?.mensaje || "No se pudo confirmar el pedido";
-      alert(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

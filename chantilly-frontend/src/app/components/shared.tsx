@@ -1,8 +1,35 @@
-﻿import React from "react";
+import React from "react";
 import { Link, useNavigate } from "react-router";
 import { ShoppingCart, User, Menu, X, Home, Bell } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { notificacionService, NotificacionApi } from "../../services/notificacionService";
+
+export function ProductSkeleton() {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col animate-pulse">
+      <div className="h-48 bg-gray-200 w-full" />
+      <div className="p-4 flex flex-col flex-1 gap-3">
+        <div className="h-4 bg-gray-200 rounded w-3/4" />
+        <div className="h-3 bg-gray-200 rounded w-1/2" />
+        <div className="mt-auto flex items-center justify-between">
+          <div className="h-6 bg-gray-200 rounded w-1/4" />
+          <div className="h-10 bg-gray-200 rounded-xl w-10" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TableSkeleton() {
+  return (
+    <div className="animate-pulse flex flex-col gap-4 w-full">
+      <div className="h-10 bg-gray-200 rounded w-full" />
+      <div className="h-12 bg-gray-200 rounded w-full" />
+      <div className="h-12 bg-gray-200 rounded w-full" />
+      <div className="h-12 bg-gray-200 rounded w-full" />
+    </div>
+  );
+}
 
 export type UiOrderStatus = "Pendiente" | "En preparación" | "Listo" | "En ruta" | "Entregado" | "Cancelado" | "Rechazado";
 

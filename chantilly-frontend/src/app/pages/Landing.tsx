@@ -6,6 +6,7 @@ import { PRODUCTS, IMAGES } from "../data/mock-data";
 import { useApp } from "../context/AppContext";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { productoService, PromocionApi } from "../../services/productoService";
+import { toast } from "sonner";
 
 const FEATURED_CATS = [
   { name: "Tortas", icon: Cake, img: IMAGES.birthday },
@@ -21,6 +22,7 @@ function CouponCard({ promo }: { promo: PromocionApi }) {
     if (!promo.codigoCupon) return;
     navigator.clipboard.writeText(promo.codigoCupon).then(() => {
       setCopied(true);
+      toast.success("Cupón copiado al portapapeles");
       setTimeout(() => setCopied(false), 2000);
     });
   };
@@ -172,16 +174,23 @@ export default function Landing() {
           <div className="w-16 h-1 bg-yellow-400 mx-auto mb-10 rounded" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {featured.map(p => (
-              <div key={p.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow">
+              <div key={p.id} className="bg-white rounded-2xl shadow-sm hover:shadow-md border border-gray-100 overflow-hidden hover:-translate-y-1 transition-all duration-300">
                 <Link to={`/producto/${p.id}`}>
-                  <div className="aspect-square overflow-hidden">
-                    <ImageWithFallback src={p.image} alt={p.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                  <div className="aspect-square overflow-hidden relative group">
+                    <ImageWithFallback src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">Ver Detalle</span>
+                    </div>
                   </div>
                 </Link>
-                <div className="p-4">
-                  <p className="text-gray-800 font-semibold mb-1">{p.name}</p>
-                  <p className="text-red-600 font-bold text-xl mb-3">S/ {p.price.toFixed(2)}</p>
-                  <BtnYellow className="w-full py-2" onClick={() => addToCart(p)}>Agregar</BtnYellow>
+                <div className="p-5 flex flex-col justify-between h-40">
+                  <p className="text-gray-800 font-bold text-lg leading-tight line-clamp-2">{p.name}</p>
+                  <div className="flex items-center justify-between mt-auto">
+                    <p className="text-red-600 font-bold text-xl">S/ {p.price.toFixed(2)}</p>
+                    <BtnYellow className="py-2 px-4 shadow-sm hover:shadow-md transition-all text-sm font-bold" onClick={() => { addToCart(p); toast.success("Agregado al carrito"); }}>
+                      Añadir
+                    </BtnYellow>
+                  </div>
                 </div>
               </div>
             ))}

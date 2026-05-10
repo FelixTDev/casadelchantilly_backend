@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Tag, Plus, Trash2, Copy, Check } from "lucide-react";
-import { BtnPrimary } from "../../components/shared";
+import { BtnPrimary, TableSkeleton } from "../../components/shared";
 import { productoService, PromocionApi } from "../../../services/productoService";
+import { toast } from "sonner";
 
 const EMPTY_FORM = {
   nombre: "",
@@ -20,6 +21,7 @@ function CouponCode({ code }: { code?: string }) {
   const handleCopy = () => {
     navigator.clipboard.writeText(code).then(() => {
       setCopied(true);
+      toast.success("Cupón copiado al portapapeles");
       setTimeout(() => setCopied(false), 2000);
     });
   };
@@ -86,9 +88,8 @@ export default function Promotions() {
       setShowForm(false);
       await loadData();
     } catch (error) {
-      console.error("Error creando promocion", error);
       const msg = (error as any)?.response?.data?.mensaje || "No se pudo crear la promoción";
-      setFormError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -99,14 +100,15 @@ export default function Promotions() {
     try {
       await productoService.desactivarPromocion(id);
       await loadData();
+      toast.success("Promoción desactivada");
     } catch {
-      alert("No se pudo desactivar la promoción");
+      toast.error("No se pudo desactivar la promoción");
     }
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <p className="text-gray-500">Cargando promociones...</p>
+    <div className="py-10">
+      <TableSkeleton />
     </div>
   );
 
