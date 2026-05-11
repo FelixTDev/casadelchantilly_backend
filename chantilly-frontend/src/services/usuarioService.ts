@@ -24,6 +24,7 @@ export interface UsuarioAdminUpdateApi {
 export const usuarioService = {
   getPerfil: () => axiosInstance.get<PerfilApi>("/usuarios/perfil"),
   updatePerfil: (data: PerfilApi) => axiosInstance.put("/usuarios/perfil", data),
+  cambiarPassword: (data: { passwordActual: string, passwordNueva: string }) => axiosInstance.put("/usuarios/perfil/password", data),
   getDirecciones: () => axiosInstance.get<DireccionApi[]>("/usuarios/direcciones"),
   addDireccion: (data: DireccionApi) => axiosInstance.post<DireccionApi>("/usuarios/direcciones", data),
   updateDireccion: (id: number, data: DireccionApi) => axiosInstance.put<DireccionApi>(`/usuarios/direcciones/${id}`, data),

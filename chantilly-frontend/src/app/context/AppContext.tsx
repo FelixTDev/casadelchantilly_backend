@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import axios from "axios";
+import { toast } from "sonner";
 import { CartItem, Product } from "../data/mock-data";
 import { authService, RegisterData } from "../../services/authService";
 import { carritoService, CarritoApi } from "../../services/carritoService";
@@ -102,7 +103,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addToCart = async (p: Product, qty = 1, customization?: string) => {
     await cartStore.addToCart(p, qty, customization, isLoggedIn, isAdmin);
-    setCartOpen(true);
+    toast.success(`${qty}x ${p.name} agregado a tu carrito 🍰`);
+    
+    // Add bounce animation to navbar cart icon
+    const cartIcon = document.getElementById("nav-cart-icon");
+    if (cartIcon) {
+      cartIcon.classList.add("animate-bounce");
+      setTimeout(() => cartIcon.classList.remove("animate-bounce"), 1000);
+    }
   };
 
   const removeFromCart = async (id: number) => {

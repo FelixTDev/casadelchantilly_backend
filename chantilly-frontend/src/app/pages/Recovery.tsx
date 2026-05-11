@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { Link } from "react-router";
-import { Home, CheckCircle, ArrowLeft } from "lucide-react";
-import { BtnPrimary } from "../components/shared";
+import { CheckCircle, ArrowLeft, Mail, ArrowRight, KeyRound } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { IMAGES } from "../data/mock-data";
 
 export default function Recovery() {
   const [email, setEmail] = useState("");
@@ -15,7 +15,10 @@ export default function Recovery() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email) {
+      setError("Por favor ingresa tu correo electrónico.");
+      return;
+    }
 
     setError("");
     setSuccessMessage("");
@@ -35,41 +38,112 @@ export default function Recovery() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center px-4 py-10" style={{ fontFamily: "Poppins" }}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-        <div className="text-center mb-6">
-          <Home className="w-10 h-10 text-[#F5C518] mx-auto mb-2" />
-          <h1 className="text-[#333]" style={{ fontWeight: 700, fontSize: 24 }}>Recuperar Contraseña</h1>
+    <div className="min-h-screen bg-white flex" style={{ fontFamily: "Poppins" }}>
+      
+      {/* Mitad Izquierda: Formulario */}
+      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center px-8 sm:px-16 py-12 relative">
+        <div className="absolute top-8 left-8">
+          <Link to="/login" className="text-gray-400 hover:text-gray-900 transition-colors flex items-center gap-2 font-medium text-sm">
+            <ArrowLeft className="w-4 h-4" /> Volver al Login
+          </Link>
         </div>
-        {sent ? (
-          <div className="text-center py-6">
-            <CheckCircle className="w-16 h-16 text-[#4CAF50] mx-auto mb-4" />
-            <h2 className="text-[#333] mb-2" style={{ fontWeight: 700, fontSize: 20 }}>¡Correo enviado!</h2>
-            <p className="text-gray-500 mb-6" style={{ fontSize: 14 }}>Hemos enviado un enlace de recuperación a {email}. Revisa tu bandeja de entrada.</p>
-            {isMockToken && (
-              <Link to={`/reset-password/${successMessage}`}>
-                <BtnPrimary className="w-full mb-3 bg-[#4CAF50] hover:bg-green-700">Ir al Enlace del Correo</BtnPrimary>
-              </Link>
-            )}
-            <Link to="/login" className="text-[#D32F2F] hover:underline" style={{ fontSize: 14 }}>Volver al Login</Link>
-          </div>
-        ) : (
-          <>
-            <p className="text-gray-500 text-center mb-6" style={{ fontSize: 14 }}>Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.</p>
-            {error && <p className="bg-red-50 text-[#D32F2F] p-3 rounded-lg mb-4 text-center" style={{ fontSize: 14 }}>{error}</p>}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[#333] mb-1" style={{ fontSize: 14, fontWeight: 600 }}>Correo electrónico</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-[#F5F5F5] focus:border-[#D32F2F] focus:outline-none" />
+
+        <div className="w-full max-w-md">
+          {sent ? (
+            <div className="text-center animate-fade-in-up">
+              <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="w-10 h-10 text-green-500" />
               </div>
-              <BtnPrimary type="submit" className="w-full" disabled={loading}>Enviar Enlace</BtnPrimary>
-            </form>
-            <Link to="/login" className="flex items-center justify-center gap-2 mt-6 text-[#D32F2F] hover:underline" style={{ fontSize: 14 }}>
-              <ArrowLeft className="w-4 h-4" /> Volver al Login
-            </Link>
-          </>
-        )}
+              <h2 className="text-gray-900 font-extrabold text-3xl mb-4">¡Correo enviado!</h2>
+              <p className="text-gray-500 text-base mb-8">
+                Hemos enviado un enlace de recuperación a <strong>{email}</strong>. Revisa tu bandeja de entrada (y la carpeta de spam por si acaso).
+              </p>
+              
+              {isMockToken && (
+                <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-left">
+                  <p className="text-yellow-800 text-xs font-bold uppercase mb-2">Modo Demo Local Activo</p>
+                  <p className="text-yellow-700 text-sm mb-3">En desarrollo no se envía correo. Haz clic abajo para simularlo:</p>
+                  <Link to={`/reset-password/${successMessage}`} className="block">
+                    <button className="w-full bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-3 rounded-full transition-all">
+                      Ir al Enlace del Correo
+                    </button>
+                  </Link>
+                </div>
+              )}
+              
+              <Link to="/login">
+                <button className="w-full bg-gray-900 hover:bg-gray-800 text-white font-bold py-4 rounded-full transition-all shadow-lg hover:shadow-xl">
+                  Volver al Login
+                </button>
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div className="mb-10 text-center lg:text-left">
+                <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto lg:mx-0">
+                  <KeyRound className="w-8 h-8 text-[#D32F2F]" />
+                </div>
+                <h1 className="text-gray-900 font-extrabold text-3xl sm:text-4xl mb-3 tracking-tight">Recuperar Acceso</h1>
+                <p className="text-gray-500 text-base">Ingresa tu correo y te enviaremos un enlace seguro para restablecer tu contraseña.</p>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border-l-4 border-[#D32F2F] text-[#D32F2F] p-4 rounded-r-lg mb-8 font-medium text-sm shadow-sm">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-gray-700 mb-2 font-bold text-sm">Correo electrónico</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-[#D32F2F] transition-colors" />
+                    </div>
+                    <input 
+                      type="email" 
+                      value={email} 
+                      onChange={e => setEmail(e.target.value)} 
+                      placeholder="tu@correo.com" 
+                      className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:bg-white transition-all" 
+                    />
+                  </div>
+                </div>
+                
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full flex justify-center items-center gap-2 bg-[#D32F2F] hover:bg-red-700 text-white font-bold py-4 rounded-full shadow-lg hover:shadow-red-900/20 transform hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-4"
+                >
+                  {loading ? "Procesando..." : (
+                    <>Enviar Enlace <ArrowRight className="w-5 h-5" /></>
+                  )}
+                </button>
+              </form>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Mitad Derecha: Imagen Inmersiva (Solo en Desktop) */}
+      <div className="hidden lg:block lg:w-1/2 relative bg-gray-900 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-10" />
+        <img 
+          src={IMAGES.tresLeches} 
+          alt="La Casa del Chantilly" 
+          className="absolute inset-0 w-full h-full object-cover opacity-90 transform scale-105"
+        />
+        <div className="absolute bottom-0 left-0 right-0 p-16 z-20">
+          <div className="w-16 h-1 bg-yellow-400 rounded-full mb-6"></div>
+          <h2 className="text-white text-5xl font-extrabold mb-4 leading-tight">
+            Siempre hay <br/>solución.
+          </h2>
+          <p className="text-gray-200 text-lg max-w-md">
+            No te preocupes por olvidar tu contraseña, recupera tu acceso y sigue disfrutando.
+          </p>
+        </div>
+      </div>
+      
     </div>
   );
 }

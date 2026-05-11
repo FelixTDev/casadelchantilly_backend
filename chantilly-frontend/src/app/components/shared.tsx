@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useNavigate } from "react-router";
-import { ShoppingCart, User, Menu, X, Home, Bell } from "lucide-react";
+import { ShoppingCart, User, Menu, X, Home, Bell, Gift, ShoppingBag, Trash2 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { notificacionService, NotificacionApi } from "../../services/notificacionService";
 
@@ -34,13 +34,13 @@ export function TableSkeleton() {
 export type UiOrderStatus = "Pendiente" | "En preparación" | "Listo" | "En ruta" | "Entregado" | "Cancelado" | "Rechazado";
 
 const STATUS_COLORS: Record<UiOrderStatus, { bg: string; text: string }> = {
-  Pendiente: { bg: "#F5C518", text: "#333333" },
-  "En preparación": { bg: "#1976D2", text: "#FFFFFF" },
-  Listo: { bg: "#4CAF50", text: "#FFFFFF" },
-  "En ruta": { bg: "#FF9800", text: "#FFFFFF" },
-  Entregado: { bg: "#2E7D32", text: "#FFFFFF" },
-  Cancelado: { bg: "#D32F2F", text: "#FFFFFF" },
-  Rechazado: { bg: "#6B7280", text: "#FFFFFF" },
+  Pendiente: { bg: "#fef3c7", text: "#d97706" },
+  "En preparación": { bg: "#eff6ff", text: "#2563eb" },
+  Listo: { bg: "#f0fdf4", text: "#16a34a" },
+  "En ruta": { bg: "#fff7ed", text: "#ea580c" },
+  Entregado: { bg: "#dcfce7", text: "#15803d" },
+  Cancelado: { bg: "#fef2f2", text: "#dc2626" },
+  Rechazado: { bg: "#f3f4f6", text: "#4b5563" },
 };
 
 export function toUiStatus(status: string): UiOrderStatus {
@@ -59,7 +59,7 @@ export function toUiStatus(status: string): UiOrderStatus {
 export function StatusBadge({ status }: { status: UiOrderStatus }) {
   const c = STATUS_COLORS[status];
   return (
-    <span className="px-3 py-1 rounded-full inline-block whitespace-nowrap" style={{ backgroundColor: c.bg, color: c.text, fontFamily: "Poppins", fontSize: 13 }}>
+    <span className="px-3 py-1 rounded-full inline-block whitespace-nowrap font-bold border" style={{ backgroundColor: c.bg, color: c.text, borderColor: "rgba(0,0,0,0.05)", fontFamily: "Poppins", fontSize: 12 }}>
       {status}
     </span>
   );
@@ -137,6 +137,9 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-6">
           <Link to="/" className="hover:text-[#F5C518] transition-colors">Inicio</Link>
           <Link to="/catalogo" className="hover:text-[#F5C518] transition-colors">Catálogo</Link>
+          <a href="/#combos" className="text-[#F5C518] font-bold hover:text-white transition-colors flex items-center gap-1">
+            <Gift className="w-4 h-4" /> Combos
+          </a>
           {isLoggedIn && <Link to="/mis-pedidos" className="hover:text-[#F5C518] transition-colors">Mis Pedidos</Link>}
         </div>
 
@@ -150,7 +153,7 @@ export function Navbar() {
             </button>
           )}
 
-          <button onClick={() => setCartOpen(true)} className="relative hover:text-[#F5C518] transition-colors">
+          <button id="nav-cart-icon" onClick={() => setCartOpen(true)} className="relative hover:text-[#F5C518] transition-colors">
             <ShoppingCart className="w-6 h-6" />
             {cartCount > 0 && (
               <span className="absolute -top-2 -right-2 bg-[#F5C518] text-[#333] w-5 h-5 rounded-full flex items-center justify-center" style={{ fontSize: 11, fontWeight: 700 }}>{cartCount}</span>
@@ -214,31 +217,56 @@ export function CartDrawer() {
   const navigate = useNavigate();
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
 
-  if (!isCartOpen) return null;
-
   return (
     <>
-      <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setCartOpen(false)} />
-      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white z-50 shadow-2xl flex flex-col" style={{ fontFamily: "Poppins" }}>
-        <div className="bg-[#D32F2F] text-white p-4 flex justify-between items-center">
-          <h2 style={{ fontWeight: 700 }}>Mi Carrito ({cart.length})</h2>
-          <button onClick={() => setCartOpen(false)}><X className="w-6 h-6" /></button>
+      {/* Backdrop */}
+      <div 
+        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity duration-300 ${isCartOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`} 
+        onClick={() => setCartOpen(false)} 
+      />
+      
+      {/* Sliding Drawer */}
+      <div 
+        className={`fixed right-0 top-0 h-full w-full max-w-md bg-white z-50 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`} 
+        style={{ fontFamily: "Poppins" }}
+      >
+        <div className="bg-[#D32F2F] text-white p-5 flex justify-between items-center shadow-md z-10">
+          <h2 className="text-xl flex items-center gap-2" style={{ fontWeight: 700 }}>
+            <ShoppingCart className="w-6 h-6" /> Mi Carrito ({cart.length})
+          </h2>
+          <button onClick={() => setCartOpen(false)} className="hover:bg-red-700 p-1.5 rounded-full transition-colors"><X className="w-6 h-6" /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50/50">
           {cart.length === 0 ? (
-            <p className="text-center text-gray-500 mt-10">Tu carrito está vacío</p>
+            <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-70">
+              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-2">
+                <ShoppingBag className="w-12 h-12 text-gray-400" />
+              </div>
+              <p className="text-xl font-bold text-gray-600">¡Tu carrito está vacío!</p>
+              <p className="text-gray-500 text-sm max-w-[250px]">Parece que aún no has agregado ninguna de nuestras delicias.</p>
+              <BtnPrimary onClick={() => setCartOpen(false)} className="mt-4 shadow-md">
+                Seguir Comprando
+              </BtnPrimary>
+            </div>
           ) : cart.map(item => (
-            <div key={item.id} className="flex gap-3 border-b pb-3">
-              <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded-lg" />
-              <div className="flex-1">
-                <p className="text-[#333]" style={{ fontWeight: 600, fontSize: 14 }}>{item.name}</p>
-                <p className="text-[#D32F2F]" style={{ fontWeight: 700 }}>S/ {item.price.toFixed(2)}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <button onClick={() => updateQty(item.id, item.quantity - 1)} className="w-7 h-7 rounded bg-gray-200 flex items-center justify-center">-</button>
-                  <span style={{ fontWeight: 600 }}>{item.quantity}</span>
-                  <button onClick={() => updateQty(item.id, item.quantity + 1)} className="w-7 h-7 rounded bg-gray-200 flex items-center justify-center">+</button>
-                  <button onClick={() => removeFromCart(item.id)} className="ml-auto text-[#D32F2F]" style={{ fontSize: 13 }}>Eliminar</button>
+            <div key={item.id} className="flex gap-4 bg-white p-3 rounded-xl shadow-sm border border-gray-100 relative group">
+              <img src={item.image} alt={item.name} className="w-24 h-24 object-cover rounded-lg shadow-sm" />
+              <div className="flex-1 flex flex-col justify-between">
+                <div className="pr-6">
+                  <p className="text-gray-800 leading-tight" style={{ fontWeight: 600, fontSize: 14 }}>{item.name}</p>
+                  <p className="text-[#D32F2F] mt-1" style={{ fontWeight: 700 }}>S/ {item.price.toFixed(2)}</p>
+                </div>
+                
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center border border-gray-200 rounded-full bg-gray-50 overflow-hidden shadow-sm">
+                    <button onClick={() => updateQty(item.id, item.quantity - 1)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 transition-colors text-gray-600 font-bold">-</button>
+                    <span className="w-8 text-center font-bold text-sm">{item.quantity}</span>
+                    <button onClick={() => updateQty(item.id, item.quantity + 1)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 transition-colors text-gray-600 font-bold">+</button>
+                  </div>
+                  <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center transition-colors absolute top-3 right-3 opacity-0 group-hover:opacity-100">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -246,18 +274,41 @@ export function CartDrawer() {
         </div>
 
         {cart.length > 0 && (
-          <div className="p-4 border-t">
-            <div className="flex justify-between mb-4">
-              <span style={{ fontWeight: 600 }}>Subtotal:</span>
-              <span className="text-[#D32F2F]" style={{ fontWeight: 700, fontSize: 18 }}>S/ {subtotal.toFixed(2)}</span>
+          <div className="p-5 bg-white border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
+            <div className="flex justify-between items-center mb-5">
+              <span className="text-gray-600" style={{ fontWeight: 600 }}>Total a Pagar:</span>
+              <span className="text-[#D32F2F]" style={{ fontWeight: 800, fontSize: 22 }}>S/ {subtotal.toFixed(2)}</span>
             </div>
-            <BtnPrimary className="w-full" onClick={() => { setCartOpen(false); navigate("/checkout"); }}>
-              Ir al Pago
+            <BtnPrimary className="w-full py-3.5 text-lg shadow-lg" onClick={() => { setCartOpen(false); navigate("/checkout"); }}>
+              Ir a Pagar de Forma Segura
             </BtnPrimary>
           </div>
         )}
       </div>
     </>
+  );
+}
+
+export function CartFAB() {
+  const { cart, setCartOpen } = useApp();
+  
+  if (cart.length === 0) return null;
+
+  return (
+    <button 
+      onClick={() => setCartOpen(true)}
+      className="fixed bottom-6 right-6 z-40 bg-[#D32F2F] hover:bg-red-700 text-white p-4 rounded-full shadow-2xl flex items-center justify-center transform hover:scale-110 transition-all duration-300 animate-bounce group"
+      style={{ animationDuration: '2s' }}
+    >
+      <ShoppingCart className="w-7 h-7" />
+      <span className="absolute -top-2 -right-2 bg-[#F5C518] text-gray-900 font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+        {cart.length}
+      </span>
+      {/* Tooltip on hover */}
+      <span className="absolute right-full mr-3 bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+        Ver mi pedido
+      </span>
+    </button>
   );
 }
 
@@ -276,6 +327,7 @@ export function Footer() {
           <h4 className="text-[#F5C518] mb-3" style={{ fontWeight: 600 }}>Enlaces</h4>
           <div className="space-y-2 text-gray-400" style={{ fontSize: 14 }}>
             <p><Link to="/catalogo" className="hover:text-[#F5C518]">Catálogo</Link></p>
+            <p><Link to="/terminos" className="hover:text-[#F5C518]">Términos y Condiciones</Link></p>
             <p><Link to="/login" className="hover:text-[#F5C518]">Mi Cuenta</Link></p>
             <p><Link to="/mis-pedidos" className="hover:text-[#F5C518]">Mis Pedidos</Link></p>
           </div>

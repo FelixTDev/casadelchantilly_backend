@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { MapPin, CreditCard, Calendar, Truck, Tag, Check, X } from "lucide-react";
+import { MapPin, CreditCard, Calendar, Truck, Tag, Check, X, Building, Banknote, Smartphone, ShieldCheck, Lock } from "lucide-react";
 import { BtnPrimary } from "../components/shared";
 import { useApp } from "../context/AppContext";
 import { usuarioService, DireccionApi } from "../../services/usuarioService";
@@ -10,10 +10,10 @@ import { productoService, PromocionApi } from "../../services/productoService";
 import { toast } from "sonner";
 
 const PAYMENT_OPTIONS = [
-  { value: "EFECTIVO", label: "Efectivo" },
-  { value: "YAPE", label: "Yape" },
-  { value: "PLIN", label: "Plin" },
-  { value: "TRANSFERENCIA", label: "Transferencia Bancaria" },
+  { value: "EFECTIVO", label: "Efectivo", icon: Banknote, description: "Pago contra entrega o en nuestra tienda." },
+  { value: "YAPE", label: "Yape", icon: Smartphone, description: "Yapea al 999 999 999 (A nombre de La Casa del Chantilly)." },
+  { value: "PLIN", label: "Plin", icon: Smartphone, description: "Plinea al 999 999 999 (A nombre de La Casa del Chantilly)." },
+  { value: "TRANSFERENCIA", label: "Transferencia", icon: Building, description: "BCP: 191-98765432-0-12 / CCI: 00219119876543201254" },
 ];
 
 export default function Checkout() {
@@ -154,13 +154,39 @@ export default function Checkout() {
               </div>
 
               {modalidad === "DELIVERY" && (
-                <select
-                  value={direccionId ?? ""}
-                  onChange={e => setDireccionId(Number(e.target.value))}
-                  className="w-full mt-4 border border-gray-300 rounded-lg px-4 py-3 bg-gray-50 focus:border-red-600 focus:outline-none text-gray-700"
-                >
-                  {direcciones.map(d => <option key={d.id} value={d.id}>{d.etiqueta} - {d.direccion}</option>)}
-                </select>
+                <div className="mt-5 space-y-3">
+                  {direcciones.length === 0 ? (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-800 text-sm">
+                      No tienes direcciones registradas. Añade una para poder realizar el envío.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {direcciones.map(d => (
+                        <div 
+                          key={d.id} 
+                          onClick={() => setDireccionId(d.id || null)} 
+                          className={`p-4 border rounded-xl cursor-pointer transition-all relative ${direccionId === d.id ? 'border-red-600 bg-red-50 ring-1 ring-red-600' : 'border-gray-200 hover:border-red-300'}`}
+                        >
+                          <div className="flex gap-3">
+                            <MapPin className={`w-5 h-5 shrink-0 ${direccionId === d.id ? 'text-red-600' : 'text-gray-400'}`} />
+                            <div>
+                              <p className={`font-bold text-sm ${direccionId === d.id ? 'text-red-800' : 'text-gray-700'}`}>{d.etiqueta}</p>
+                              <p className="text-xs text-gray-500 mt-1 leading-relaxed">{d.direccion}</p>
+                            </div>
+                          </div>
+                          {direccionId === d.id && (
+                            <div className="absolute top-4 right-4 text-red-600">
+                              <Check className="w-4 h-4" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button onClick={() => navigate("/perfil")} className="text-sm text-red-600 font-semibold hover:text-red-800 transition-colors flex items-center gap-1 mt-3">
+                    + Administrar Direcciones
+                  </button>
+                </div>
               )}
             </div>
 
@@ -180,13 +206,36 @@ export default function Checkout() {
                 <CreditCard className="w-5 h-5 text-red-600" />
                 <h2 className="text-gray-800 font-bold">Método de Pago</h2>
               </div>
-              <div className="space-y-3">
-                {PAYMENT_OPTIONS.map(m => (
-                  <label key={m.value} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer border transition ${payment === m.value ? "border-red-600 bg-red-50" : "border-gray-200 hover:bg-gray-50"}`}>
-                    <input type="radio" name="payment" value={m.value} checked={payment === m.value} onChange={() => setPayment(m.value)} className="accent-red-600" />
-                    <span className={`text-sm ${payment === m.value ? "font-semibold text-red-700" : "text-gray-700"}`}>{m.label}</span>
-                  </label>
-                ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {PAYMENT_OPTIONS.map(m => {
+                  const Icon = m.icon;
+                  return (
+                    <div 
+                      key={m.value} 
+                      onClick={() => setPayment(m.value)} 
+                      className={`p-4 border rounded-xl cursor-pointer transition-all relative overflow-hidden ${payment === m.value ? 'border-red-600 bg-red-50 ring-1 ring-red-600' : 'border-gray-200 hover:border-red-300 hover:shadow-sm'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-lg transition-colors ${payment === m.value ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <span className={`font-bold text-sm ${payment === m.value ? "text-red-800" : "text-gray-700"}`}>{m.label}</span>
+                      </div>
+                      
+                      {/* Detailed Instruction drops down */}
+                      <div className={`text-xs text-gray-600 overflow-hidden transition-all duration-300 ${payment === m.value ? 'max-h-24 opacity-100 mt-3 pt-3 border-t border-red-200' : 'max-h-0 opacity-0 mt-0 pt-0 border-transparent'}`}>
+                        <p>{m.description}</p>
+                      </div>
+
+                      {/* Small selected checkmark indicator */}
+                      {payment === m.value && (
+                        <div className="absolute top-4 right-4 text-red-600">
+                          <Check className="w-5 h-5" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -268,12 +317,24 @@ export default function Checkout() {
             </div>
 
             <BtnPrimary
-              className="w-full mt-2"
+              className="w-full mt-2 py-3.5 text-lg shadow-md"
               onClick={handleOrder}
               disabled={loading || (modalidad === "DELIVERY" && !direccionId)}
             >
-              {loading ? "Procesando..." : "Confirmar Pedido"}
+              {loading ? "Procesando de forma segura..." : "Confirmar Pedido"}
             </BtnPrimary>
+
+            {/* Sellos de Confianza */}
+            <div className="flex items-center justify-center gap-5 mt-4 pt-5 border-t border-gray-100">
+              <div className="flex flex-col items-center gap-1.5 text-center">
+                <ShieldCheck className="w-5 h-5 text-green-600" /> 
+                <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Pago Seguro</span>
+              </div>
+              <div className="flex flex-col items-center gap-1.5 text-center">
+                <Lock className="w-5 h-5 text-blue-600" /> 
+                <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Encriptado SSL</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

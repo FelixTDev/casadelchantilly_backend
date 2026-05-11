@@ -2,6 +2,7 @@ package com.integrador.chantilly.usuario.controller;
 
 import com.integrador.chantilly.usuario.dto.DireccionDTO;
 import com.integrador.chantilly.usuario.dto.UsuarioAdminUpdateDTO;
+import com.integrador.chantilly.usuario.dto.CambiarPasswordDTO;
 import com.integrador.chantilly.usuario.dto.UsuarioPerfilDTO;
 import com.integrador.chantilly.usuario.entity.Usuario;
 import com.integrador.chantilly.usuario.repository.UsuarioRepository;
@@ -98,6 +99,12 @@ public class UsuarioController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/perfil/password")
+    public ResponseEntity<Void> cambiarPassword(Authentication auth, @Valid @RequestBody CambiarPasswordDTO dto) {
+        perfilService.cambiarPassword(auth.getName(), dto);
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/direcciones")
     public ResponseEntity<List<DireccionDTO>> listarDirecciones(Authentication auth) {
         return ResponseEntity.ok(perfilService.listarDirecciones(auth.getName()));
@@ -129,6 +136,11 @@ public class UsuarioController {
     @PutMapping("/me")
     public ResponseEntity<Void> actualizarMiPerfilCompat(Authentication auth, @Valid @RequestBody UsuarioPerfilDTO dto) {
         return actualizarPerfil(auth, dto);
+    }
+
+    @PutMapping("/me/password")
+    public ResponseEntity<Void> cambiarPasswordCompat(Authentication auth, @Valid @RequestBody CambiarPasswordDTO dto) {
+        return cambiarPassword(auth, dto);
     }
 
     @PostMapping("/me/direcciones")

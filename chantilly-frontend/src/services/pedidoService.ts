@@ -51,5 +51,6 @@ export const pedidoService = {
   getTodos: () => axiosInstance.get<PedidoApi[]>("/pedidos"),
   cambiarEstado: (id: number | string, estado: string) => axiosInstance.put<PedidoApi>(`/pedidos/${id}/estado`, { estado }),
   cancelar: (id: number | string) => axiosInstance.delete(`/pedidos/${id}/cancelar`),
+  descargarBoleta: (id: number | string) => axiosInstance.get(`/pedidos/${id}/boleta`, { responseType: 'blob' }),
 };
 

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Home, Eye, EyeOff } from "lucide-react";
-import { BtnPrimary } from "../components/shared";
+import { Eye, EyeOff, Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { IMAGES } from "../data/mock-data";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -15,7 +15,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError("Completa todos los campos");
+      setError("Por favor, completa todos los campos");
       return;
     }
 
@@ -31,47 +31,111 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center px-4 py-10" style={{ fontFamily: "Poppins" }}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-        <div className="text-center mb-6">
-          <Home className="w-10 h-10 text-[#F5C518] mx-auto mb-2" />
-          <h1 className="text-[#333]" style={{ fontWeight: 700, fontSize: 24 }}>Iniciar Sesión</h1>
-          <p className="text-gray-500" style={{ fontSize: 14 }}>Ingresa a tu cuenta de La Casa del Chantilly</p>
+    <div className="min-h-screen bg-white flex" style={{ fontFamily: "Poppins" }}>
+      
+      {/* Mitad Izquierda: Formulario */}
+      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center px-8 sm:px-16 py-12 relative">
+        <div className="absolute top-8 left-8">
+          <Link to="/" className="text-gray-400 hover:text-gray-900 transition-colors flex items-center gap-2 font-medium text-sm">
+            <ArrowLeft className="w-4 h-4" /> Volver al inicio
+          </Link>
         </div>
 
-        {error && <p className="bg-red-50 text-[#D32F2F] p-3 rounded-lg mb-4 text-center" style={{ fontSize: 14 }}>{error}</p>}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-[#333] mb-1" style={{ fontSize: 14, fontWeight: 600 }}>Correo electrónico</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-[#F5F5F5] focus:border-[#D32F2F] focus:outline-none transition" />
+        <div className="w-full max-w-md">
+          <div className="mb-10 text-center lg:text-left">
+            <h1 className="text-gray-900 font-extrabold text-3xl sm:text-4xl mb-3 tracking-tight">Bienvenido de vuelta</h1>
+            <p className="text-gray-500 text-base">Ingresa a tu cuenta de La Casa del Chantilly y continúa disfrutando.</p>
           </div>
-          <div>
-            <label className="block text-[#333] mb-1" style={{ fontSize: 14, fontWeight: 600 }}>Contraseña</label>
-            <div className="relative">
-              <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-[#F5F5F5] focus:border-[#D32F2F] focus:outline-none transition pr-12" />
-              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-3 text-gray-400">
-                {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
+
+          {error && (
+            <div className="bg-red-50 border-l-4 border-[#D32F2F] text-[#D32F2F] p-4 rounded-r-lg mb-8 font-medium text-sm shadow-sm">
+              {error}
             </div>
-          </div>
-          <div className="text-right">
-            <Link to="/recuperar" className="text-[#D32F2F] hover:underline" style={{ fontSize: 14 }}>¿Olvidaste tu contraseña?</Link>
-          </div>
-          <BtnPrimary type="submit" className="w-full" disabled={loading}>Ingresar</BtnPrimary>
-        </form>
+          )}
 
-        <p className="text-center mt-6 text-gray-500" style={{ fontSize: 14 }}>
-          ¿No tienes cuenta? <Link to="/registro" className="text-[#D32F2F] hover:underline" style={{ fontWeight: 600 }}>Regístrate aquí</Link>
-        </p>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-gray-700 mb-2 font-bold text-sm">Correo electrónico</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-[#D32F2F] transition-colors" />
+                </div>
+                <input 
+                  type="email" 
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)} 
+                  placeholder="tu@correo.com"
+                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:bg-white transition-all transition-colors" 
+                />
+              </div>
+            </div>
+            
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-gray-700 font-bold text-sm">Contraseña</label>
+                <Link to="/recuperar" className="text-[#D32F2F] hover:text-red-700 hover:underline text-sm font-semibold transition-colors">
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-[#D32F2F] transition-colors" />
+                </div>
+                <input 
+                  type={showPw ? "text" : "password"} 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  placeholder="••••••••"
+                  className="w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:bg-white transition-all transition-colors" 
+                />
+                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors">
+                  {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+            
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full flex justify-center items-center gap-2 bg-[#D32F2F] hover:bg-red-700 text-white font-bold py-4 rounded-full shadow-lg hover:shadow-red-900/20 transform hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-4"
+            >
+              {loading ? "Cargando..." : (
+                <>Ingresar <ArrowRight className="w-5 h-5" /></>
+              )}
+            </button>
+          </form>
 
-        <div className="mt-4 pt-4 border-t text-center">
-          <p className="text-gray-400 mb-2" style={{ fontSize: 12 }}>Demo: usa cualquier email para cliente</p>
-          <p className="text-gray-400" style={{ fontSize: 12 }}>admin@chantilly.com para panel admin</p>
+          <p className="text-center mt-10 text-gray-500 text-sm">
+            ¿Aún no tienes una cuenta? <Link to="/registro" className="text-[#D32F2F] font-bold hover:underline">Regístrate aquí</Link>
+          </p>
+
+          <div className="mt-12 pt-6 border-t border-gray-100 flex flex-col gap-1 items-center justify-center">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Accesos Demo</span>
+            <p className="text-gray-400 text-xs bg-gray-50 px-3 py-1 rounded-full">Cliente: cualquier email</p>
+            <p className="text-gray-400 text-xs bg-gray-50 px-3 py-1 rounded-full">Admin: admin@chantilly.com</p>
+          </div>
         </div>
       </div>
+
+      {/* Mitad Derecha: Imagen Inmersiva (Solo en Desktop) */}
+      <div className="hidden lg:block lg:w-1/2 relative bg-gray-900 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-10" />
+        <img 
+          src={IMAGES.chocolate} 
+          alt="La Casa del Chantilly" 
+          className="absolute inset-0 w-full h-full object-cover opacity-90 transform scale-105"
+        />
+        <div className="absolute bottom-0 left-0 right-0 p-16 z-20">
+          <div className="w-16 h-1 bg-yellow-400 rounded-full mb-6"></div>
+          <h2 className="text-white text-5xl font-extrabold mb-4 leading-tight">
+            El lado más dulce <br/>de la vida.
+          </h2>
+          <p className="text-gray-200 text-lg max-w-md">
+            Horneamos historias y recuerdos en cada una de nuestras recetas, desde 1998.
+          </p>
+        </div>
+      </div>
+      
     </div>
   );
 }

@@ -1,4 +1,4 @@
-﻿export const IMAGES = {
+export const IMAGES = {
   birthday: "https://images.unsplash.com/photo-1741969494307-55394e3e4071?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiaXJ0aGRheSUyMGNha2UlMjBkZWNvcmF0ZWR8ZW58MXx8fHwxNzc2MDMyNzE0fDA&ixlib=rb-4.1.0&q=80&w=1080",
   chocolate: "https://images.unsplash.com/photo-1700448293876-07dca826c161?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaG9jb2xhdGUlMjBjYWtlJTIwc2xpY2V8ZW58MXx8fHwxNzc2MDMyNzE0fDA&ixlib=rb-4.1.0&q=80&w=1080",
   cupcakes: "https://images.unsplash.com/photo-1615557509870-98972c5e1396?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjdXBjYWtlcyUyMGNvbG9yZnVsJTIwYmFrZXJ5fGVufDF8fHx8MTc3NjAzMjcxNXww&ixlib=rb-4.1.0&q=80&w=1080",
@@ -47,7 +47,7 @@ export interface Order {
   address: string;
 }
 
-export const CATEGORIES = ["Tortas", "Cupcakes", "Pasteles", "Bocaditos", "Panes", "Postres", "Galletas"];
+export const CATEGORIES = ["Tortas", "Cupcakes", "Pasteles", "Bocaditos", "Panes", "Postres", "Galletas", "Combos"];
 
 export const PRODUCTS: Product[] = [
   { id: 1, name: "Torta de Cumpleaños Clásica", price: 85.0, category: "Tortas", image: IMAGES.birthday, description: "Deliciosa torta decorada con crema chantilly y frutas frescas. Perfecta para celebraciones especiales. Rinde 20 porciones.", stock: 12 },
@@ -62,6 +62,8 @@ export const PRODUCTS: Product[] = [
   { id: 10, name: "Tarta de Frutas", price: 58.0, category: "Pasteles", image: IMAGES.tart, description: "Tarta con crema pastelera y frutas de estación sobre base de masa quebrada artesanal.", stock: 7 },
   { id: 11, name: "Galletas Decoradas x12", price: 36.0, category: "Galletas", image: IMAGES.cookies, description: "Docena de galletas de mantequilla decoradas con glaseado real. Perfectas para regalos y eventos.", stock: 18 },
   { id: 12, name: "Mini Cupcakes x24", price: 55.0, category: "Cupcakes", image: IMAGES.cupcakes, description: "24 mini cupcakes ideales para eventos. Variedad de sabores con decoración personalizable.", stock: 15 },
+  { id: 13, name: "Combo Cumpleañero: Torta + Bocaditos", price: 120.0, category: "Combos", image: IMAGES.birthday, description: "La mejor opción para tu fiesta. Incluye una torta clásica de 20 porciones y 50 bocaditos surtidos dulces y salados.", stock: 10 },
+  { id: 14, name: "Combo Dulzura: Cheesecake + Cupcakes", price: 95.0, category: "Combos", image: IMAGES.cheesecake, description: "Para compartir con tus personas favoritas. Un cheesecake entero más una docena de cupcakes surtidos.", stock: 8 },
 ];
 
 export const ORDERS: Order[] = [

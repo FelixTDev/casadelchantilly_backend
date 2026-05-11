@@ -17,6 +17,7 @@ import Confirmation from "./pages/Confirmation";
 import MyOrders from "./pages/MyOrders";
 import OrderDetail from "./pages/OrderDetail";
 import Claim from "./pages/Claim";
+import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
 
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
           { path: "pedido/:id", Component: OrderDetail },
           { path: "perfil", element: <ProtectedRoute clientOnly={true}><Profile /></ProtectedRoute> },
           { path: "reclamo", element: <ProtectedRoute><Claim /></ProtectedRoute> },
+          { path: "terminos", Component: Terms },
         ],
       },
       { path: "login", Component: Login },

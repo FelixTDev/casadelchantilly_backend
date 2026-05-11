@@ -7,6 +7,8 @@ import com.integrador.chantilly.usuario.entity.Usuario;
 import com.integrador.chantilly.usuario.repository.DireccionRepository;
 import com.integrador.chantilly.usuario.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import com.integrador.chantilly.usuario.dto.CambiarPasswordDTO;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -16,10 +18,12 @@ public class UsuarioPerfilService {
 
     private final UsuarioRepository usuarioRepository;
     private final DireccionRepository direccionRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UsuarioPerfilService(UsuarioRepository usuarioRepository, DireccionRepository direccionRepository) {
+    public UsuarioPerfilService(UsuarioRepository usuarioRepository, DireccionRepository direccionRepository, PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
         this.direccionRepository = direccionRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public UsuarioPerfilDTO obtenerPerfil(String email) {
@@ -42,6 +46,26 @@ public class UsuarioPerfilService {
         usuario.setNombre(dto.getNombre());
         usuario.setApellido(dto.getApellido());
         usuario.setTelefono(dto.getTelefono());
+
+        if (dto.getEmail() != null && !dto.getEmail().equals(usuario.getEmail())) {
+            if (usuarioRepository.existsByEmail(dto.getEmail())) {
+                throw new RuntimeException("El correo electrónico ya está en uso");
+            }
+            usuario.setEmail(dto.getEmail());
+        }
+
+        usuarioRepository.save(usuario);
+    }
+
+    public void cambiarPassword(String email, CambiarPasswordDTO dto) {
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        if (!passwordEncoder.matches(dto.getPasswordActual(), usuario.getPasswordHash())) {
+            throw new RuntimeException("La contraseña actual es incorrecta");
+        }
+
+        usuario.setPasswordHash(passwordEncoder.encode(dto.getPasswordNueva()));
         usuarioRepository.save(usuario);
     }
 
