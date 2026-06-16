@@ -9,7 +9,13 @@ yarn-debug.log*
 yarn-error.log*
 
 # Backend
-chantilly-backend/target/
+target/
+*.log
+backend-dev.err.log
+backend-dev.out.log
+backend-live.log
+backend-run.err.log
+backend-run.log
 
 # IDE
 .vscode/

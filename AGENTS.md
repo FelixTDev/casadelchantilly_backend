@@ -1,7 +1,7 @@
 # AGENTS
 
 ## Alcance
-- `chantilly-backend`: Spring Boot con seguridad JWT, módulos por dominio y PDF/reportes.
+- Raíz del repo: Spring Boot con seguridad JWT, módulos por dominio y PDF/reportes.
 
 ## Reglas de trabajo
 - Antes de editar, revisar el flujo completo afectado en backend y el contrato API involucrado.
@@ -16,8 +16,8 @@
 - Mantener pruebas `*IT` ejecutándose con `verify`, no solo con `test`.
 
 ## Comandos base
-- Backend unit/integration: `.\mvnw.cmd verify` en `chantilly-backend`
-- Backend local: `.\mvnw.cmd spring-boot:run` en `chantilly-backend`
+- Backend unit/integration: `.\mvnw.cmd verify` en la raíz
+- Backend local: `.\mvnw.cmd spring-boot:run` en la raíz
 
 ## Validación mínima antes de cerrar
 - Backend: `.\mvnw.cmd test`
