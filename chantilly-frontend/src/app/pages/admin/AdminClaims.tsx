@@ -1,33 +1,103 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { AlertCircle, CheckCircle2, ChevronRight, Clock, MessageSquareWarning, Package, Search, ShieldCheck, X } from "lucide-react";
 import { reclamoService, ReclamoApi } from "../../../services/reclamoService";
+import { AdminEmptyState, AdminErrorState, AdminFilterChip, AdminLoadingState, AdminPagination, AdminPanel } from "../../components/adminUi";
+import { getLocalDateInputValue } from "../../lib/validation";
 import { toast } from "sonner";
-import { 
-  MessageSquareWarning, Hash, Package, Clock, 
-  AlertCircle, CheckCircle2, X, ShieldCheck, 
-  ChevronRight, Inbox
-} from "lucide-react";
+import { showRequestError } from "../../../lib/notifyError";
+
+const PAGE_SIZE = 8;
+
+function formatDate(value?: string) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("es-PE");
+}
+
+function getClaimPriority(claim: ReclamoApi) {
+  const createdAt = claim.creadoEn ? new Date(claim.creadoEn).getTime() : Date.now();
+  const hoursOpen = Math.max(0, (Date.now() - createdAt) / 3600000);
+
+  if (claim.estado === "ABIERTO" && (claim.tipo === "CALIDAD" || claim.tipo === "COBRO_INCORRECTO" || hoursOpen >= 72)) {
+    return { label: "Alta", className: "border-red-200 bg-red-50 text-red-700" };
+  }
+  if (claim.estado === "ABIERTO" && (claim.tipo === "RETRASO" || hoursOpen >= 24)) {
+    return { label: "Media", className: "border-amber-200 bg-amber-50 text-amber-700" };
+  }
+  return { label: "Baja", className: "border-emerald-200 bg-emerald-50 text-emerald-700" };
+}
+
+function getClaimSla(claim: ReclamoApi) {
+  const createdAt = claim.creadoEn ? new Date(claim.creadoEn).getTime() : Date.now();
+  const closedAt = claim.resueltoEn ? new Date(claim.resueltoEn).getTime() : Date.now();
+  const hours = Math.max(0, Math.round((closedAt - createdAt) / 3600000));
+
+  if (claim.estado === "RESUELTO") {
+    return { label: `Resuelto en ${hours}h`, className: "border-blue-200 bg-blue-50 text-blue-700" };
+  }
+  if (hours > 48) {
+    return { label: `Vencido ${hours}h`, className: "border-red-200 bg-red-50 text-red-700" };
+  }
+  return { label: `${hours}h en cola`, className: "border-gray-200 bg-gray-50 text-gray-600" };
+}
 
 export default function AdminClaims() {
   const [reclamos, setReclamos] = useState<ReclamoApi[]>([]);
   const [resolvingClaim, setResolvingClaim] = useState<ReclamoApi | null>(null);
   const [resolucion, setResolucion] = useState("");
   const [tipoSolucion, setTipoSolucion] = useState("SIN_ACCION");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("TODOS");
+  const [typeFilter, setTypeFilter] = useState("TODOS");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState(getLocalDateInputValue());
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const load = async () => {
+    setLoading(true);
+    setError("");
     try {
       const res = await reclamoService.getTodos();
-      // Ordenar recientes primero
       setReclamos(res.data.sort((a, b) => (b.id || 0) - (a.id || 0)));
     } catch (e) {
       console.error("Error cargando reclamos", e);
+      setError("No se pudo cargar la bandeja de reclamos.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
+
+  const claimTypes = useMemo(() => {
+    return ["TODOS", ...Array.from(new Set(reclamos.map((r) => r.tipo).filter(Boolean)))];
+  }, [reclamos]);
+
+  const filtered = useMemo(() => {
+    return reclamos.filter((r) => {
+      const createdDate = r.creadoEn?.slice(0, 10) || "";
+      const matchesSearch =
+        !search.trim() ||
+        `${r.id} ${r.pedidoId} ${r.descripcion} ${r.tipo}`.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === "TODOS" || r.estado === statusFilter;
+      const matchesType = typeFilter === "TODOS" || r.tipo === typeFilter;
+      const matchesFrom = !fromDate || createdDate >= fromDate;
+      const matchesTo = !toDate || createdDate <= toDate;
+      return matchesSearch && matchesStatus && matchesType && matchesFrom && matchesTo;
+    });
+  }, [reclamos, search, statusFilter, typeFilter, fromDate, toDate]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, typeFilter, fromDate, toDate]);
+
+  const pagedClaims = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const openClaimsCount = reclamos.filter((r) => r.estado === "ABIERTO").length;
 
   const openDrawer = (reclamo: ReclamoApi) => {
     setResolvingClaim(reclamo);
@@ -53,109 +123,133 @@ export default function AdminClaims() {
       await load();
     } catch (e) {
       console.error("Error resolviendo reclamo", e);
-      toast.error("No se pudo resolver el reclamo");
+      showRequestError(e, "No se pudo resolver el reclamo");
     } finally {
       setSaving(false);
     }
   };
 
-  const openClaimsCount = reclamos.filter(r => r.estado === "ABIERTO").length;
+  if (loading) {
+    return <AdminLoadingState message="Cargando buzón de reclamos..." />;
+  }
 
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center py-32" style={{ fontFamily: "Poppins" }}>
-      <div className="w-12 h-12 border-4 border-gray-200 border-t-red-500 rounded-full animate-spin mb-4"></div>
-      <p className="text-gray-400 font-medium">Cargando buzón de reclamos...</p>
-    </div>
-  );
+  if (error) {
+    return <AdminErrorState description={error} onRetry={load} />;
+  }
 
   return (
     <div style={{ fontFamily: "Poppins" }}>
-      
-      {/* Header Premium */}
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-gray-900 font-extrabold text-3xl tracking-tight mb-1">Centro de Reclamos</h2>
-          <p className="text-gray-500 text-sm font-medium flex items-center gap-1.5">
-            <MessageSquareWarning className="w-4 h-4" />
-            Atención y resolución de problemas de clientes.
-          </p>
+          <h2 className="text-3xl font-extrabold tracking-tight text-gray-900">Centro de Reclamos</h2>
+          <p className="mt-1 text-sm font-medium text-gray-500">Filtra por estado, motivo y fecha. Incluye prioridad y SLA operativo.</p>
         </div>
-        
-        {openClaimsCount > 0 && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-100 px-4 py-2 rounded-xl">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-            </span>
-            <span className="text-red-700 font-bold text-sm">
-              {openClaimsCount} sin resolver
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+          <MessageSquareWarning className="h-4 w-4 text-red-500" />
+          <span className="text-sm font-bold text-red-700">{openClaimsCount} abiertos</span>
+        </div>
       </div>
 
-      {/* Slide-over Drawer para Resolver Reclamo */}
+      <AdminPanel className="mb-6 p-4 sm:p-5">
+        <div className="flex flex-col gap-4">
+          <div className="relative max-w-xl">
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por ticket, pedido, tipo o detalle..."
+              className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-12 pr-4 text-sm font-medium text-gray-800 placeholder-gray-400 shadow-sm transition focus:border-[#D32F2F] focus:outline-none focus:ring-4 focus:ring-red-500/10"
+            />
+          </div>
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {["TODOS", "ABIERTO", "RESUELTO"].map((status) => (
+                <AdminFilterChip
+                  key={status}
+                  label={status === "TODOS" ? "Todos" : status === "ABIERTO" ? "Abiertos" : "Resueltos"}
+                  active={statusFilter === status}
+                  onClick={() => setStatusFilter(status)}
+                />
+              ))}
+              {claimTypes.map((type) => (
+                <AdminFilterChip
+                  key={type}
+                  label={type === "TODOS" ? "Todos los tipos" : type.replace(/_/g, " ")}
+                  active={typeFilter === type}
+                  onClick={() => setTypeFilter(type)}
+                />
+              ))}
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition focus:border-[#D32F2F] focus:outline-none focus:ring-4 focus:ring-red-500/10"
+              />
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition focus:border-[#D32F2F] focus:outline-none focus:ring-4 focus:ring-red-500/10"
+              />
+            </div>
+          </div>
+        </div>
+      </AdminPanel>
+
       {resolvingClaim && (
         <>
-          <div className="fixed inset-0 z-40 transition-opacity" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} onClick={closeDrawer} />
-          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-white shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col" style={{ boxShadow: "-10px 0 40px rgba(0,0,0,0.1)" }}>
-            
-            <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-gray-50/50">
+          <div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} onClick={closeDrawer} />
+          <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col bg-white shadow-2xl" style={{ boxShadow: "-10px 0 40px rgba(0,0,0,0.1)" }}>
+            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-8 py-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center">
-                  <ShieldCheck className="w-5 h-5 text-[#D32F2F]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-100 bg-white shadow-sm">
+                  <ShieldCheck className="h-5 w-5 text-[#D32F2F]" />
                 </div>
                 <div>
-                  <h3 className="text-gray-900 font-extrabold text-xl leading-tight">Resolver Reclamo</h3>
-                  <p className="text-gray-500 text-xs font-semibold">Ticket #{resolvingClaim.id}</p>
+                  <h3 className="text-xl font-extrabold leading-tight text-gray-900">Resolver Reclamo</h3>
+                  <p className="text-xs font-semibold text-gray-500">Ticket #{resolvingClaim.id}</p>
                 </div>
               </div>
-              <button onClick={closeDrawer} className="w-8 h-8 rounded-full bg-white border border-gray-200 hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 hover:text-gray-600 shadow-sm">
-                <X className="w-4 h-4" />
+              <button onClick={closeDrawer} className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400 shadow-sm transition hover:bg-gray-100 hover:text-gray-600">
+                <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-8">
-              {/* Contexto del Reclamo */}
-              <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 mb-8">
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Detalles del problema</h4>
-                
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-gray-700 font-bold text-xs shadow-sm">
-                    <Package className="w-3.5 h-3.5 text-gray-400" />
+              <div className="mb-8 rounded-2xl border border-gray-100 bg-gray-50 p-5">
+                <h4 className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-400">Detalles del problema</h4>
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-bold text-gray-700 shadow-sm">
+                    <Package className="h-3.5 w-3.5 text-gray-400" />
                     Pedido #{resolvingClaim.pedidoId}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-gray-700 font-bold text-xs shadow-sm">
-                    <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-bold text-gray-700 shadow-sm">
+                    <AlertCircle className="h-3.5 w-3.5 text-red-400" />
                     {resolvingClaim.tipo?.replace(/_/g, " ")}
                   </span>
                 </div>
-                
-                <p className="text-gray-800 text-sm font-medium leading-relaxed bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                  "{resolvingClaim.descripcion}"
-                </p>
+                <p className="rounded-xl border border-gray-100 bg-white p-3 text-sm font-medium leading-relaxed text-gray-800">"{resolvingClaim.descripcion}"</p>
               </div>
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-gray-900 mb-2 font-bold text-sm">Respuesta / Solución *</label>
+                  <label className="mb-2 block text-sm font-bold text-gray-900">Respuesta / Solución *</label>
                   <textarea
                     value={resolucion}
-                    onChange={e => setResolucion(e.target.value)}
+                    onChange={(e) => setResolucion(e.target.value)}
                     rows={5}
-                    placeholder="Escribe la respuesta formal que se le dará al cliente o cómo se solucionó internamente..."
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-[#D32F2F] transition-all shadow-sm hover:border-gray-300 resize-none"
-                    style={{ fontSize: 14 }}
+                    placeholder="Escribe la respuesta formal o la solución aplicada..."
+                    className="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 placeholder-gray-400 shadow-sm transition hover:border-gray-300 focus:border-[#D32F2F] focus:outline-none focus:ring-4 focus:ring-red-500/10"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-gray-900 mb-2 font-bold text-sm">Tipo de Acción Tomada *</label>
+                  <label className="mb-2 block text-sm font-bold text-gray-900">Tipo de Acción Tomada *</label>
                   <select
                     value={tipoSolucion}
-                    onChange={e => setTipoSolucion(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white text-gray-800 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-[#D32F2F] transition-all shadow-sm hover:border-gray-300"
-                    style={{ fontSize: 14 }}
+                    onChange={(e) => setTipoSolucion(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm transition hover:border-gray-300 focus:border-[#D32F2F] focus:outline-none focus:ring-4 focus:ring-red-500/10"
                   >
                     <option value="REEMBOLSO">Reembolso al cliente</option>
                     <option value="REPOSICION">Reposición de producto</option>
@@ -165,15 +259,11 @@ export default function AdminClaims() {
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-100 bg-gray-50/50 shrink-0 flex gap-3">
-              <button onClick={closeDrawer}
-                className="flex-1 text-gray-600 bg-white border border-gray-200 font-bold py-3.5 px-6 rounded-xl hover:bg-gray-50 transition-all shadow-sm"
-                style={{ fontSize: 14 }}>
+            <div className="flex gap-3 border-t border-gray-100 bg-gray-50/50 p-6">
+              <button onClick={closeDrawer} className="flex-1 rounded-xl border border-gray-200 bg-white px-6 py-3.5 text-sm font-bold text-gray-600 shadow-sm transition hover:bg-gray-50">
                 Cancelar
               </button>
-              <button onClick={handleResolver} disabled={saving}
-                className="flex-1 bg-[#D32F2F] hover:bg-red-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-red-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
-                style={{ fontSize: 14 }}>
+              <button onClick={handleResolver} disabled={saving} className="flex-1 rounded-xl bg-[#D32F2F] px-6 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70">
                 {saving ? "Guardando..." : "Confirmar Resolución"}
               </button>
             </div>
@@ -181,112 +271,167 @@ export default function AdminClaims() {
         </>
       )}
 
-      {/* Tabla Premium o Estado Vacío */}
-      {reclamos.length === 0 ? (
-        <div className="bg-white rounded-3xl p-16 text-center border border-gray-100 transition-all duration-500 hover:shadow-xl" style={{ boxShadow: "0 10px 40px -10px rgba(0,0,0,0.08)" }}>
-          <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-white shadow-sm ring-1 ring-green-100">
-            <Inbox className="w-12 h-12 text-green-500" />
-          </div>
-          <h3 className="text-gray-900 font-extrabold text-2xl mb-2">Buzón impecable</h3>
-          <p className="text-gray-500 font-medium max-w-sm mx-auto leading-relaxed">
-            ¡Excelente servicio! No tienes ningún reclamo pendiente de atención en este momento.
-          </p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-3xl overflow-hidden" style={{ boxShadow: "0 10px 40px -10px rgba(0,0,0,0.08)" }}>
-          <div className="overflow-x-auto">
-            <table className="w-full" style={{ fontSize: 14 }}>
-              <thead>
-                <tr className="bg-gray-50/80 border-b border-gray-100">
-                  <th className="text-left py-4 px-6 text-gray-500 font-bold text-xs uppercase tracking-wider">Ticket</th>
-                  <th className="text-left py-4 px-6 text-gray-500 font-bold text-xs uppercase tracking-wider">Pedido</th>
-                  <th className="text-left py-4 px-6 text-gray-500 font-bold text-xs uppercase tracking-wider hidden sm:table-cell">Motivo</th>
-                  <th className="text-left py-4 px-6 text-gray-500 font-bold text-xs uppercase tracking-wider">Detalle</th>
-                  <th className="text-left py-4 px-6 text-gray-500 font-bold text-xs uppercase tracking-wider hidden md:table-cell">Fecha</th>
-                  <th className="text-left py-4 px-6 text-gray-500 font-bold text-xs uppercase tracking-wider">Estado</th>
-                  <th className="text-right py-4 px-6 text-gray-500 font-bold text-xs uppercase tracking-wider">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reclamos.map(r => {
-                  const isOpen = r.estado === "ABIERTO";
-                  return (
-                    <tr key={r.id} className="group border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                      {/* Ticket ID */}
-                      <td className="py-4 px-6">
-                        <span className="text-gray-400 font-bold text-xs">#{r.id}</span>
-                      </td>
+      <AdminPanel className="overflow-hidden">
+        <div className="grid gap-4 p-4 lg:hidden">
+          {pagedClaims.length === 0 ? (
+            <AdminEmptyState title="Sin reclamos en este filtro" description="Prueba otro rango, estado o tipo de reclamo." />
+          ) : (
+            pagedClaims.map((r) => {
+              const isOpen = r.estado === "ABIERTO";
+              const priority = getClaimPriority(r);
+              const sla = getClaimSla(r);
+              return (
+                <div key={r.id} className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Ticket #{r.id}</p>
+                      <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-100 px-2.5 py-1.5 text-xs font-bold text-gray-700 shadow-sm">
+                        <Package className="h-3.5 w-3.5 text-gray-400" />#{r.pedidoId}
+                      </div>
+                    </div>
+                    {isOpen ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700">
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+                        </span>
+                        Abierto
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">
+                        <CheckCircle2 className="h-3 w-3 text-green-500" />
+                        Resuelto
+                      </span>
+                    )}
+                  </div>
 
-                      {/* Pedido */}
-                      <td className="py-4 px-6">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 border border-gray-200 text-gray-700 font-bold text-xs shadow-sm">
-                          <Package className="w-3.5 h-3.5 text-gray-400" />
-                          #{r.pedidoId}
+                  <div className="mt-4 space-y-3 rounded-2xl bg-gray-50/80 p-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold capitalize text-gray-700">
+                      {r.tipo === "RETRASO" ? <Clock className="h-4 w-4 text-orange-400" /> : <AlertCircle className="h-4 w-4 text-red-400" />}
+                      {r.tipo?.replace(/_/g, " ").toLowerCase()}
+                    </div>
+                    <p className="text-sm leading-relaxed text-gray-600">{r.descripcion}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-bold ${priority.className}`}>{priority.label}</span>
+                      <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-bold ${sla.className}`}>{sla.label}</span>
+                      <span className="inline-flex rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-500">
+                        {formatDate(r.creadoEn)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex justify-end">
+                    {isOpen ? (
+                      <button
+                        onClick={() => openDrawer(r)}
+                        className="inline-flex items-center justify-center gap-1 rounded-2xl border-2 border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-600 shadow-sm transition hover:border-[#D32F2F] hover:text-[#D32F2F]"
+                      >
+                        Resolver <ChevronRight className="h-3 w-3" />
+                      </button>
+                    ) : (
+                      <span className="text-xs font-semibold capitalize text-gray-600">
+                        Solución: {r.tipoSolucion?.replace(/_/g, " ").toLowerCase()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <div className="hidden overflow-x-auto lg:block">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50/80">
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500">Ticket</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500">Pedido</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500">Motivo</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500">Detalle</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500">Prioridad</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500">SLA</th>
+                <th className="hidden px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500 lg:table-cell">Fecha</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500">Estado</th>
+                <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-gray-500">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagedClaims.length === 0 ? (
+                <tr>
+                  <td colSpan={9}>
+                    <AdminEmptyState title="Sin reclamos en este filtro" description="Prueba otro rango, estado o tipo de reclamo." />
+                  </td>
+                </tr>
+              ) : (
+                pagedClaims.map((r) => {
+                  const isOpen = r.estado === "ABIERTO";
+                  const priority = getClaimPriority(r);
+                  const sla = getClaimSla(r);
+                  return (
+                    <tr key={r.id} className="border-b border-gray-50 transition-colors hover:bg-gray-50/50">
+                      <td className="px-6 py-4 text-xs font-bold text-gray-400">#{r.id}</td>
+                      <td className="px-6 py-4">
+                        <div className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-100 px-2.5 py-1.5 text-xs font-bold text-gray-700 shadow-sm">
+                          <Package className="h-3.5 w-3.5 text-gray-400" />#{r.pedidoId}
                         </div>
                       </td>
-
-                      {/* Motivo */}
-                      <td className="py-4 px-6 hidden sm:table-cell">
-                        <div className="flex items-center gap-1.5 text-gray-700 font-semibold text-xs capitalize">
-                          {r.tipo === "RETRASO" ? <Clock className="w-4 h-4 text-orange-400" /> : <AlertCircle className="w-4 h-4 text-red-400" />}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold capitalize text-gray-700">
+                          {r.tipo === "RETRASO" ? <Clock className="h-4 w-4 text-orange-400" /> : <AlertCircle className="h-4 w-4 text-red-400" />}
                           {r.tipo?.replace(/_/g, " ").toLowerCase()}
                         </div>
                       </td>
-
-                      {/* Detalle */}
-                      <td className="py-4 px-6">
-                        <p className="text-gray-600 font-medium text-sm max-w-[200px] xl:max-w-[300px] truncate" title={r.descripcion}>
+                      <td className="px-6 py-4">
+                        <p className="max-w-[260px] truncate text-sm font-medium text-gray-600" title={r.descripcion}>
                           {r.descripcion}
                         </p>
                       </td>
-
-                      {/* Fecha */}
-                      <td className="py-4 px-6 text-gray-500 font-medium text-sm hidden md:table-cell">
-                        {r.creadoEn?.slice(0, 10)}
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-bold ${priority.className}`}>{priority.label}</span>
                       </td>
-
-                      {/* Estado */}
-                      <td className="py-4 px-6">
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-bold ${sla.className}`}>{sla.label}</span>
+                      </td>
+                      <td className="hidden px-6 py-4 text-sm font-medium text-gray-500 lg:table-cell">{formatDate(r.creadoEn)}</td>
+                      <td className="px-6 py-4">
                         {isOpen ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border border-red-200 bg-red-50 text-red-700">
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700">
                             <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+                              <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
                             </span>
                             Abierto
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border border-green-200 bg-green-50 text-green-700">
-                            <CheckCircle2 className="w-3 h-3 text-green-500" />
-                            {r.estado}
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">
+                            <CheckCircle2 className="h-3 w-3 text-green-500" />
+                            Resuelto
                           </span>
                         )}
                       </td>
-
-                      {/* Acción */}
-                      <td className="py-4 px-6 text-right">
+                      <td className="px-6 py-4 text-right">
                         {isOpen ? (
-                          <button 
+                          <button
                             onClick={() => openDrawer(r)}
-                            className="inline-flex items-center justify-center gap-1 bg-white border-2 border-gray-200 text-gray-600 hover:text-[#D32F2F] hover:border-[#D32F2F] font-bold py-1.5 px-4 rounded-xl transition-all shadow-sm text-xs"
+                            className="inline-flex items-center justify-center gap-1 rounded-xl border-2 border-gray-200 bg-white px-4 py-1.5 text-xs font-bold text-gray-600 shadow-sm transition hover:border-[#D32F2F] hover:text-[#D32F2F]"
                           >
-                            Resolver <ChevronRight className="w-3 h-3" />
+                            Resolver <ChevronRight className="h-3 w-3" />
                           </button>
                         ) : (
                           <div className="flex flex-col items-end">
-                            <span className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-0.5">Solución:</span>
-                            <span className="text-gray-700 font-semibold text-xs capitalize">{r.tipoSolucion?.replace(/_/g, " ").toLowerCase()}</span>
+                            <span className="mb-0.5 text-xs font-bold uppercase tracking-wider text-gray-400">Solución</span>
+                            <span className="text-xs font-semibold capitalize text-gray-700">{r.tipoSolucion?.replace(/_/g, " ").toLowerCase()}</span>
                           </div>
                         )}
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+        <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} />
+      </AdminPanel>
     </div>
   );
 }

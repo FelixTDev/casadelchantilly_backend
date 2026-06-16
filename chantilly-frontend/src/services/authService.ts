@@ -14,8 +14,14 @@ export interface LoginData {
 }
 
 export interface AuthResponse {
-  token: string;
-  tipo: string;
+  token: string | null;
+  id: number;
+  nombre: string;
+  email: string;
+  rol: string;
+}
+
+export interface CurrentSessionResponse {
   id: number;
   nombre: string;
   email: string;
@@ -25,6 +31,10 @@ export interface AuthResponse {
 export const authService = {
   login: (data: LoginData) =>
     axiosInstance.post<AuthResponse>('/auth/login', data),
+  getSession: () =>
+    axiosInstance.get<CurrentSessionResponse>('/auth/session', { skipAuthRedirect: true } as never),
+  getCsrf: () =>
+    axiosInstance.get<{ mensaje: string }>('/auth/csrf'),
   register: (data: RegisterData) =>
     axiosInstance.post<{ mensaje: string }>('/auth/register', data),
   recuperarPassword: (email: string) =>

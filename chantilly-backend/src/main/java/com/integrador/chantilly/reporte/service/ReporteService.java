@@ -174,6 +174,46 @@ public class ReporteService {
                 "SELECT COUNT(*) FROM usuarios u JOIN roles r ON u.id_rol = r.id WHERE r.nombre = 'CLIENTE'");
         dto.setTotalClientes(((Number) qClientes.getSingleResult()).longValue());
 
+        Query qConversion = entityManager.createNativeQuery(
+                "SELECT " +
+                        "COUNT(DISTINCT p.id) AS total_pedidos, " +
+                        "COUNT(DISTINCT CASE WHEN pa.estado_pago = 'CONFIRMADO' THEN p.id END) AS pedidos_confirmados " +
+                "FROM pedidos p " +
+                "LEFT JOIN pagos pa ON pa.id_pedido = p.id " +
+                "WHERE p.estado != 'CANCELADO'");
+        Object[] conversion = (Object[]) qConversion.getSingleResult();
+        long totalPedidos = ((Number) conversion[0]).longValue();
+        long pedidosConfirmados = ((Number) conversion[1]).longValue();
+        dto.setTasaConversion(totalPedidos > 0
+                ? BigDecimal.valueOf(pedidosConfirmados * 100.0 / totalPedidos).setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO);
+
+        Query qCanal = entityManager.createNativeQuery(
+                "SELECT modalidad_entrega, COALESCE(AVG(total), 0) " +
+                "FROM pedidos WHERE estado != 'CANCELADO' GROUP BY modalidad_entrega");
+        @SuppressWarnings("unchecked")
+        List<Object[]> canales = qCanal.getResultList();
+        dto.setTicketDelivery(BigDecimal.ZERO);
+        dto.setTicketRecojoTienda(BigDecimal.ZERO);
+        for (Object[] row : canales) {
+            String canal = row[0] == null ? "" : row[0].toString();
+            BigDecimal ticket = new BigDecimal(row[1].toString()).setScale(2, RoundingMode.HALF_UP);
+            if ("DELIVERY".equalsIgnoreCase(canal)) {
+                dto.setTicketDelivery(ticket);
+            } else if ("RECOJO_TIENDA".equalsIgnoreCase(canal)) {
+                dto.setTicketRecojoTienda(ticket);
+            }
+        }
+
+        Query qEntrega = entityManager.createNativeQuery(
+                "SELECT COALESCE(AVG(TIMESTAMPDIFF(MINUTE, p.creado_en, h.creado_en)) / 60, 0) " +
+                "FROM pedidos p " +
+                "JOIN historial_estados h ON h.id_pedido = p.id AND h.estado = 'ENTREGADO'");
+        Number avgEntregaHoras = (Number) qEntrega.getSingleResult();
+        dto.setTiempoEntregaPromedioHoras(
+                BigDecimal.valueOf(avgEntregaHoras.doubleValue()).setScale(2, RoundingMode.HALF_UP)
+        );
+
         LocalDate hace7 = hoy.minusDays(6);
         Query qSemana = entityManager.createNativeQuery(
                 "SELECT DATE(creado_en), COUNT(*), COALESCE(SUM(total),0) FROM pedidos " +

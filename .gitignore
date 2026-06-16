@@ -12,6 +12,7 @@ yarn-error.log*
 chantilly-frontend/node_modules/
 chantilly-frontend/dist/
 chantilly-frontend/.vite/
+chantilly-frontend/test-results/
 
 # Backend
 chantilly-backend/target/
@@ -19,3 +20,6 @@ chantilly-backend/target/
 # IDE
 .vscode/
 .idea/
+
+# Local audit artifacts
+output/

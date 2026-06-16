@@ -1,5 +1,6 @@
 package com.integrador.chantilly.producto.service;
 
+import com.integrador.chantilly.admin.service.AdminActivityLogService;
 import com.integrador.chantilly.producto.dto.ProductoDTO;
 import com.integrador.chantilly.producto.entity.AlertaStock;
 import com.integrador.chantilly.producto.entity.Categoria;
@@ -7,6 +8,8 @@ import com.integrador.chantilly.producto.entity.Producto;
 import com.integrador.chantilly.producto.repository.AlertaStockRepository;
 import com.integrador.chantilly.producto.repository.CategoriaRepository;
 import com.integrador.chantilly.producto.repository.ProductoRepository;
+import com.integrador.chantilly.usuario.entity.Usuario;
+import com.integrador.chantilly.usuario.repository.UsuarioRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -20,17 +23,27 @@ public class ProductoService {
     private final ProductoRepository productoRepository;
     private final CategoriaRepository categoriaRepository;
     private final AlertaStockRepository alertaStockRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final AdminActivityLogService adminActivityLogService;
 
     public ProductoService(ProductoRepository productoRepository,
                            CategoriaRepository categoriaRepository,
-                           AlertaStockRepository alertaStockRepository) {
+                           AlertaStockRepository alertaStockRepository,
+                           UsuarioRepository usuarioRepository,
+                           AdminActivityLogService adminActivityLogService) {
         this.productoRepository = productoRepository;
         this.categoriaRepository = categoriaRepository;
         this.alertaStockRepository = alertaStockRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.adminActivityLogService = adminActivityLogService;
     }
 
     public List<ProductoDTO> listarTodos() {
         return productoRepository.findByDisponibleTrue().stream().map(this::toDto).toList();
+    }
+
+    public List<ProductoDTO> listarTodosAdmin() {
+        return productoRepository.findAllByOrderByNombreAsc().stream().map(this::toDto).toList();
     }
 
     public Page<ProductoDTO> listarPaginado(Pageable pageable) {
@@ -54,29 +67,47 @@ public class ProductoService {
 
     @Transactional
     public ProductoDTO crear(ProductoDTO dto) {
+        return crear(dto, null);
+    }
+
+    @Transactional
+    public ProductoDTO crear(ProductoDTO dto, Integer adminId) {
         Producto producto = new Producto();
         aplicarDatos(dto, producto);
         Producto guardado = productoRepository.save(producto);
         generarAlertaSiCorresponde(guardado);
+        registrarActividad(adminId, "CREAR", guardado);
         return toDto(guardado);
     }
 
     @Transactional
     public ProductoDTO actualizar(Integer id, ProductoDTO dto) {
+        return actualizar(id, dto, null);
+    }
+
+    @Transactional
+    public ProductoDTO actualizar(Integer id, ProductoDTO dto, Integer adminId) {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
         aplicarDatos(dto, producto);
         Producto guardado = productoRepository.save(producto);
         generarAlertaSiCorresponde(guardado);
+        registrarActividad(adminId, "ACTUALIZAR", guardado);
         return toDto(guardado);
     }
 
     @Transactional
     public void desactivar(Integer id) {
+        desactivar(id, null);
+    }
+
+    @Transactional
+    public void desactivar(Integer id, Integer adminId) {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
         producto.setDisponible(false);
         productoRepository.save(producto);
+        registrarActividad(adminId, "DESACTIVAR", producto);
     }
 
     private void aplicarDatos(ProductoDTO dto, Producto producto) {
@@ -127,5 +158,20 @@ public class ProductoService {
             dto.setCategoriaNombre(producto.getCategoria().getNombre());
         }
         return dto;
+    }
+
+    private void registrarActividad(Integer adminId, String accion, Producto producto) {
+        if (adminId == null) {
+            return;
+        }
+        Usuario admin = usuarioRepository.findById(adminId).orElse(null);
+        adminActivityLogService.registrar(
+                admin,
+                "PRODUCTOS",
+                accion,
+                "PRODUCTO",
+                producto.getId(),
+                accion + " producto " + producto.getNombre()
+        );
     }
 }

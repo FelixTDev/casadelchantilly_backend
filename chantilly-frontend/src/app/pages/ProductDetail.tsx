@@ -5,6 +5,8 @@ import { BtnPrimary } from "../components/shared";
 import { useApp } from "../context/AppContext";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { productoService, ProductoApi } from "../../services/productoService";
+import { validateDedication } from "../lib/validation";
+import { toast } from "sonner";
 
 type ViewProduct = {
   id: number;
@@ -37,6 +39,8 @@ export default function ProductDetail() {
   const { addToCart } = useApp();
 
   const MAX_CUSTOM_LEN = 60;
+  const dedicationError = validateDedication(custom, MAX_CUSTOM_LEN);
+  const isOutOfStock = product?.stock === 0;
 
   useEffect(() => {
     const load = async () => {
@@ -144,26 +148,39 @@ export default function ProductDetail() {
                     <div className="absolute right-3 bottom-3 w-2 h-2 rounded-full bg-green-500"></div>
                   )}
                 </div>
+                <p className="mt-2 text-xs text-gray-500">Usa un mensaje corto. No se guardan textos vacíos o solo con espacios.</p>
+                {dedicationError && <p className="mt-2 text-sm text-red-600">{dedicationError}</p>}
               </div>
 
               {/* Controles de Compra */}
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 {/* Selector de Cantidad Premium */}
                 <div className="flex items-center justify-between border-2 border-gray-100 rounded-full bg-gray-50 overflow-hidden h-14 shrink-0 sm:w-36">
-                  <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-12 h-full flex items-center justify-center hover:bg-gray-200 text-gray-600 transition-colors">
+                  <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-12 h-full flex items-center justify-center hover:bg-gray-200 text-gray-600 transition-colors" disabled={qty <= 1}>
                     <Minus className="w-5 h-5" />
                   </button>
                   <span className="font-extrabold text-gray-900 text-lg w-8 text-center">{qty}</span>
-                  <button onClick={() => setQty(Math.min(Math.max(1, product.stock), qty + 1))} className="w-12 h-full flex items-center justify-center hover:bg-gray-200 text-gray-600 transition-colors">
+                  <button onClick={() => setQty(Math.min(Math.max(1, product.stock), qty + 1))} className="w-12 h-full flex items-center justify-center hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={qty >= Math.max(1, product.stock)}>
                     <Plus className="w-5 h-5" />
                   </button>
                 </div>
 
                 <button 
-                  onClick={() => addToCart(product, qty, custom)}
-                  className="flex-1 h-14 bg-[#D32F2F] hover:bg-red-700 text-white font-bold text-lg rounded-full shadow-lg shadow-red-200 flex items-center justify-center gap-2 transform hover:-translate-y-1 transition-all"
+                  onClick={() => {
+                    if (isOutOfStock) {
+                      toast.error("Este producto está agotado");
+                      return;
+                    }
+                    if (dedicationError) {
+                      toast.error(dedicationError);
+                      return;
+                    }
+                    addToCart(product, qty, custom.trim() ? custom.trim() : undefined);
+                  }}
+                  disabled={!!dedicationError || isOutOfStock}
+                  className="flex-1 h-14 bg-[#D32F2F] hover:bg-red-700 text-white font-bold text-lg rounded-full shadow-lg shadow-red-200 flex items-center justify-center gap-2 transform hover:-translate-y-1 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  <ShoppingCart className="w-6 h-6" /> Añadir al Carrito
+                  <ShoppingCart className="w-6 h-6" /> {isOutOfStock ? "Producto Agotado" : "Añadir al Carrito"}
                 </button>
               </div>
 

@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CartItem, Product } from "../app/data/mock-data";
 import { carritoService } from "./carritoService";
+import { toast } from "sonner";
+import { showRequestError } from "../lib/notifyError";
 
 // Mismo tipo que usaba AppContext
 interface CartState {
@@ -72,12 +74,8 @@ export const useCartStore = create<CartState>()(
       setCartOpen: (v) => set({ isCartOpen: v }),
 
       syncFromApi: async () => {
-        try {
-          const res = await carritoService.getCarrito();
-          set({ cart: mapApiToLocal(res.data.items || []) });
-        } catch {
-          set({ cart: [] });
-        }
+        const res = await carritoService.getCarrito();
+        set({ cart: mapApiToLocal(res.data.items || []) });
       },
 
       addToCart: async (p, qty = 1, customization, isLoggedIn = false, isAdmin = false) => {
@@ -90,6 +88,7 @@ export const useCartStore = create<CartState>()(
           set({ cart: mapApiToLocal(res.data.items || []), isCartOpen: true });
         } catch (e) {
           console.error("Error agregando al carrito", e);
+          showRequestError(e, "No se pudo agregar el producto al carrito");
         }
       },
 
@@ -103,6 +102,7 @@ export const useCartStore = create<CartState>()(
           set({ cart: mapApiToLocal(res.data.items || []) });
         } catch (e) {
           console.error("Error eliminando item", e);
+          showRequestError(e, "No se pudo eliminar el producto");
         }
       },
 
@@ -120,6 +120,7 @@ export const useCartStore = create<CartState>()(
           }
         } catch (e) {
           console.error("Error actualizando cantidad", e);
+          showRequestError(e, "No se pudo actualizar la cantidad");
         }
       },
 
@@ -133,6 +134,7 @@ export const useCartStore = create<CartState>()(
           set({ cart: [] });
         } catch (e) {
           console.error("Error vaciando carrito", e);
+          showRequestError(e, "No se pudo vaciar el carrito");
         }
       },
     }),

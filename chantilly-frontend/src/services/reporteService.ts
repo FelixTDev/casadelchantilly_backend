@@ -38,6 +38,10 @@ export interface DashboardApi {
   pedidosPendientes: number;
   alertasStockActivas: number;
   totalClientes: number;
+  tasaConversion: number;
+  ticketDelivery: number;
+  ticketRecojoTienda: number;
+  tiempoEntregaPromedioHoras: number;
   ventasSemana: VentasDiaApi[];
 }
 

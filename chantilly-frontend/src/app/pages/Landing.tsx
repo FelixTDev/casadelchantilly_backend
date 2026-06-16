@@ -99,16 +99,21 @@ export default function Landing() {
   const { addToCart, isLoggedIn } = useApp();
   const [promociones, setPromociones] = useState<PromocionApi[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     productoService.getPromociones().then(res => {
       const activas = res.data.filter(p => p.activo);
       setPromociones(activas);
-    }).catch(() => {});
+    }).catch(() => {
+      setLoadError("Parte del catálogo no está disponible en este momento.");
+    });
 
     productoService.getAll().then(res => {
       setProductos(res.data.map(mapProductoToView));
-    }).catch(() => {});
+    }).catch(() => {
+      setLoadError("Parte del catálogo no está disponible en este momento.");
+    });
   }, []);
 
   const combos = productos.filter(p => p.category?.toLowerCase() === "combos");
@@ -117,15 +122,15 @@ export default function Landing() {
   return (
     <div>
       {/* Hero */}
-      <section className="bg-red-600 text-white py-16 md:py-24">
+      <section className="bg-[#B83A3A] text-white py-16 md:py-24">
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center gap-10">
           <div className="flex-1 text-center md:text-left">
-            <p className="text-yellow-400 mb-2 font-semibold">Pastelería Artesanal Peruana</p>
+            <p className="text-yellow-300 mb-2 font-semibold">Pastelería Artesanal Peruana</p>
             <h1 className="text-3xl md:text-5xl mb-4 font-bold leading-tight">
-              Endulzamos tus <span className="text-yellow-400">momentos</span> más especiales
+              Diseñamos postres que convierten una fecha importante en un recuerdo que sí se comenta
             </h1>
             <p className="text-white/80 mb-8 max-w-lg text-base">
-              Desde 1998 horneamos con amor tortas, pasteles y bocaditos para toda ocasión. Ingredientes de primera calidad y recetas tradicionales peruanas.
+              Tortas, bocaditos y mesas dulces con acabado cuidado, sabor consistente y entrega confiable. Ideal para cumpleaños, oficina, aniversario o una celebración que no admite improvisaciones.
             </p>
             <div className="flex flex-wrap gap-4 justify-center md:justify-start">
               <Link to="/catalogo">
@@ -133,9 +138,9 @@ export default function Landing() {
               </Link>
               {!isLoggedIn && (
                 <Link to="/registro">
-                  <button className="border-2 border-white text-white px-6 py-3 rounded-lg hover:bg-white hover:text-red-600 transition font-semibold">
-                    Crear Cuenta
-                  </button>
+                    <button className="border-2 border-white text-white px-6 py-3 rounded-lg hover:bg-white hover:text-[#B83A3A] transition font-semibold">
+                      Crear Cuenta
+                    </button>
                 </Link>
               )}
             </div>
@@ -146,16 +151,24 @@ export default function Landing() {
         </div>
       </section>
 
+      {loadError && (
+        <section className="bg-amber-50 border-y border-amber-200">
+          <div className="max-w-7xl mx-auto px-4 py-3 text-sm text-amber-800">
+            {loadError}
+          </div>
+        </section>
+      )}
+
       {/* Combos Irresistibles */}
       {combos.length > 0 && (
         <section id="combos" className="py-16 bg-red-50">
           <div className="max-w-7xl mx-auto px-4">
             <div className="text-center mb-10">
-              <span className="bg-red-600 text-white px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider inline-flex items-center gap-2 mb-4">
+              <span className="bg-[#B83A3A] text-white px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider inline-flex items-center gap-2 mb-4">
                 <Gift className="w-4 h-4" /> Oferta Especial
               </span>
               <h2 className="text-gray-800 font-bold text-3xl md:text-4xl mb-4">Combos Irresistibles</h2>
-              <p className="text-gray-600 max-w-2xl mx-auto">Ahorra más llevando nuestros paquetes diseñados especialmente para tus celebraciones.</p>
+              <p className="text-gray-600 max-w-2xl mx-auto">Paquetes listos para resolver una celebración completa con menos decisiones y mejor costo por pedido.</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -246,7 +259,7 @@ export default function Landing() {
             <h2 className="text-center text-gray-800 font-bold text-3xl mb-2">Promociones Especiales</h2>
             <div className="w-16 h-1 bg-red-600 mx-auto mb-3 rounded" />
             <p className="text-center text-gray-500 text-sm mb-10">
-              ¡Copia el código y úsalo al finalizar tu compra!
+              Activa un cupón o aprovecha descuentos automáticos para cerrar tu compra con mejor ticket.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {promociones.map(promo => (
@@ -262,29 +275,36 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-center text-gray-800 font-bold text-3xl mb-2">Productos Destacados</h2>
           <div className="w-16 h-1 bg-yellow-400 mx-auto mb-10 rounded" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featured.map(p => (
-              <div key={p.id} className="bg-white rounded-2xl shadow-sm hover:shadow-md border border-gray-100 overflow-hidden hover:-translate-y-1 transition-all duration-300">
-                <Link to={`/producto/${p.id}`}>
-                  <div className="aspect-square overflow-hidden relative group">
-                    <ImageWithFallback src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">Ver Detalle</span>
+          {featured.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
+              <h3 className="text-xl font-bold text-gray-800 mb-2">Aún no hay productos destacados</h3>
+              <p className="text-gray-500">Vuelve más tarde o revisa el catálogo completo.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featured.map(p => (
+                <div key={p.id} className="bg-white rounded-2xl shadow-sm hover:shadow-md border border-gray-100 overflow-hidden hover:-translate-y-1 transition-all duration-300">
+                  <Link to={`/producto/${p.id}`}>
+                    <div className="aspect-square overflow-hidden relative group">
+                      <ImageWithFallback src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">Ver Detalle</span>
+                      </div>
+                    </div>
+                  </Link>
+                  <div className="p-5 flex flex-col justify-between h-40">
+                    <p className="text-gray-800 font-bold text-lg leading-tight line-clamp-2">{p.name}</p>
+                    <div className="flex items-center justify-between mt-auto">
+                      <p className="text-red-600 font-bold text-xl">S/ {p.price.toFixed(2)}</p>
+                      <BtnYellow className="py-2 px-4 shadow-sm hover:shadow-md transition-all text-sm font-bold" onClick={() => { addToCart(p); toast.success("Agregado al carrito"); }}>
+                        Añadir
+                      </BtnYellow>
                     </div>
                   </div>
-                </Link>
-                <div className="p-5 flex flex-col justify-between h-40">
-                  <p className="text-gray-800 font-bold text-lg leading-tight line-clamp-2">{p.name}</p>
-                  <div className="flex items-center justify-between mt-auto">
-                    <p className="text-red-600 font-bold text-xl">S/ {p.price.toFixed(2)}</p>
-                    <BtnYellow className="py-2 px-4 shadow-sm hover:shadow-md transition-all text-sm font-bold" onClick={() => { addToCart(p); toast.success("Agregado al carrito"); }}>
-                      Añadir
-                    </BtnYellow>
-                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
           <div className="text-center mt-10">
             <Link to="/catalogo"><BtnPrimary>Ver Todo el Catálogo</BtnPrimary></Link>
           </div>

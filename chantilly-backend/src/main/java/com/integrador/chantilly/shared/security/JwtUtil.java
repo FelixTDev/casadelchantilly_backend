@@ -6,9 +6,11 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.Assert;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -23,6 +25,13 @@ public class JwtUtil {
 
     @Value("${jwt.expiration:86400000}")
     private long expiration;
+
+    @PostConstruct
+    void validateConfiguration() {
+        Assert.hasText(secret, "JWT secret must be configured");
+        byte[] keyBytes = resolveSecretBytes();
+        Assert.isTrue(keyBytes.length >= 32, "JWT secret must be at least 256 bits");
+    }
 
     public String generateToken(UserDetails userDetails, Map<String, Object> extraClaims) {
         Date now = new Date();
@@ -64,12 +73,14 @@ public class JwtUtil {
     }
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes;
+        return Keys.hmacShaKeyFor(resolveSecretBytes());
+    }
+
+    private byte[] resolveSecretBytes() {
         try {
-            keyBytes = Decoders.BASE64.decode(secret);
-        } catch (IllegalArgumentException ex) {
-            keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+            return Decoders.BASE64.decode(secret);
+        } catch (RuntimeException ex) {
+            return secret.getBytes(StandardCharsets.UTF_8);
         }
-        return Keys.hmacShaKeyFor(keyBytes);
     }
 }

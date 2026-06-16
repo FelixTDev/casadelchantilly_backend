@@ -1,5 +1,6 @@
 package com.integrador.chantilly.reclamo.service;
 
+import com.integrador.chantilly.admin.service.AdminActivityLogService;
 import com.integrador.chantilly.reclamo.dto.ReclamoDTO;
 import com.integrador.chantilly.reclamo.entity.Reclamo;
 import com.integrador.chantilly.reclamo.repository.ReclamoRepository;
@@ -19,13 +20,16 @@ public class ReclamoService {
     private final ReclamoRepository reclamoRepository;
     private final PedidoRepository pedidoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final AdminActivityLogService adminActivityLogService;
 
     public ReclamoService(ReclamoRepository reclamoRepository,
                          PedidoRepository pedidoRepository,
-                         UsuarioRepository usuarioRepository) {
+                         UsuarioRepository usuarioRepository,
+                         AdminActivityLogService adminActivityLogService) {
         this.reclamoRepository = reclamoRepository;
         this.pedidoRepository = pedidoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.adminActivityLogService = adminActivityLogService;
     }
 
     @Transactional
@@ -63,7 +67,7 @@ public class ReclamoService {
     }
 
     @Transactional
-    public ReclamoDTO resolver(Integer id, String resolucion, String tipoSolucion) {
+    public ReclamoDTO resolver(Integer id, String resolucion, String tipoSolucion, Integer adminId) {
         Reclamo reclamo = reclamoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Reclamo no encontrado"));
 
@@ -72,7 +76,20 @@ public class ReclamoService {
         reclamo.setEstado("RESUELTO");
         reclamo.setResueltoEn(LocalDateTime.now());
 
-        return toDto(reclamoRepository.save(reclamo));
+        Reclamo guardado = reclamoRepository.save(reclamo);
+        if (adminId != null) {
+            Usuario admin = usuarioRepository.findById(adminId).orElse(null);
+            adminActivityLogService.registrar(
+                    admin,
+                    "RECLAMOS",
+                    "RESOLVER",
+                    "RECLAMO",
+                    guardado.getId(),
+                    "Resolvió reclamo #" + guardado.getId() + " con acción " + tipoSolucion
+            );
+        }
+
+        return toDto(guardado);
     }
 
     private ReclamoDTO toDto(Reclamo reclamo) {

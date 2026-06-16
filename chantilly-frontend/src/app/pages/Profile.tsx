@@ -1,26 +1,59 @@
 import React, { useState, useEffect } from "react";
-import { User, MapPin, Plus, Trash2, Edit2, Check, X, Lock, Mail, Phone, Building } from "lucide-react";
+import { User, MapPin, Plus, Trash2, Edit2, Check, Lock, Mail, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { BtnPrimary, BtnSecondary } from "../components/shared";
 import { useApp } from "../context/AppContext";
 import { usuarioService, DireccionApi } from "../../services/usuarioService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
+import {
+  normalizePhone,
+  normalizePersonName,
+  normalizeText,
+  sanitizeNameInput,
+  validateAddress,
+  validateAddressLabel,
+  validateEmail,
+  validateName,
+  validatePassword,
+  validatePasswordConfirmation,
+  validatePhone,
+} from "../lib/validation";
+import { AuthBreadcrumbs } from "../components/AuthBreadcrumbs";
+import { FieldFeedback } from "../components/forms/FieldFeedback";
+import { showRequestError } from "../../lib/notifyError";
+import { AddressIcon, ProfileAddressModal, ProfileDeleteAddressModal, ProfilePasswordModal } from "../features/profile/ProfileModals";
 
 export default function Profile() {
   const { user, setUser, logout } = useApp();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: "", lastName: "", email: "", phone: "" });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [addresses, setAddresses] = useState<DireccionApi[]>([]);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [showModal, setShowModal] = useState(false);
   const [newAddress, setNewAddress] = useState({ etiqueta: "", direccion: "", telefono: "" });
+  const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
   const [savingAddress, setSavingAddress] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<number | null>(null);
+  const [addressToDelete, setAddressToDelete] = useState<DireccionApi | null>(null);
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({ passwordActual: "", passwordNueva: "" });
+  const [passwordForm, setPasswordForm] = useState({ passwordActual: "", passwordNueva: "", confirmPasswordNueva: "" });
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
   const [savingPassword, setSavingPassword] = useState(false);
+  const [showEmailConfirm, setShowEmailConfirm] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -48,93 +81,138 @@ export default function Profile() {
     }
   };
 
-  const handleSave = async () => {
-    try {
-      await usuarioService.updatePerfil({
-        nombre: form.name,
-        apellido: form.lastName,
-        email: form.email,
-        telefono: form.phone,
-      });
+  const saveProfile = async () => {
+    const nextEmail = form.email.trim();
+    const nextName = normalizePersonName(form.name);
+    const nextLastName = normalizePersonName(form.lastName);
+    const nextPhone = normalizePhone(form.phone);
 
-      if (form.email !== user.email) {
-        toast.success("Correo actualizado exitosamente. Por favor inicia sesión nuevamente.");
-        logout();
+    await usuarioService.updatePerfil({
+      nombre: nextName,
+      apellido: nextLastName,
+      email: nextEmail,
+      telefono: nextPhone,
+    });
+
+    if (nextEmail !== user.email) {
+      toast.success("Correo actualizado exitosamente. Por favor inicia sesión nuevamente.");
+      logout();
+      return;
+    }
+
+    setUser({ ...user, name: nextName, lastName: nextLastName, phone: nextPhone, email: nextEmail });
+    setEditing(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleSave = async () => {
+    const nextErrors = {
+      name: validateName(form.name, "El nombre"),
+      lastName: validateName(form.lastName, "El apellido"),
+      email: validateEmail(form.email),
+      phone: validatePhone(form.phone),
+    };
+    setFieldErrors(nextErrors);
+    if (Object.values(nextErrors).some(Boolean)) {
+      toast.error("Corrige los campos marcados antes de guardar");
+      return;
+    }
+
+    try {
+      if (form.email.trim() !== user.email) {
+        setShowEmailConfirm(true);
         return;
       }
-
-      setUser({ ...user, name: form.name, lastName: form.lastName, phone: form.phone, email: form.email });
-      setEditing(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err: any) {
+      await saveProfile();
+    } catch (err) {
       console.error("Error guardando perfil", err);
-      if (err.response?.data?.mensaje) {
-        toast.error(err.response.data.mensaje);
-      } else {
-        toast.error("Hubo un error al guardar los cambios");
-      }
+      showRequestError(err, "Hubo un error al guardar los cambios");
     }
   };
 
+  const handleNameFieldChange = (key: "name" | "lastName", value: string, label: string) => {
+    const sanitized = sanitizeNameInput(value);
+    setForm((prev) => ({ ...prev, [key]: sanitized }));
+    setTouched((prev) => ({ ...prev, [key]: true }));
+    setFieldErrors((prev) => ({
+      ...prev,
+      [key]: sanitized !== value ? "Solo se permiten letras" : "",
+    }));
+  };
+
   const handleSaveAddress = async () => {
-    if (!newAddress.etiqueta || !newAddress.direccion) {
-      toast.error("La etiqueta y dirección son obligatorias");
+    const nextErrors = {
+      etiqueta: validateAddressLabel(newAddress.etiqueta),
+      direccion: validateAddress(newAddress.direccion),
+      telefono: validatePhone(newAddress.telefono, false),
+    };
+    setAddressErrors(nextErrors);
+    if (Object.values(nextErrors).some(Boolean)) {
+      toast.error("Corrige los campos de dirección antes de guardar");
       return;
     }
     setSavingAddress(true);
     try {
+      const payload = {
+        etiqueta: normalizeText(newAddress.etiqueta),
+        direccion: normalizeText(newAddress.direccion),
+        telefono: normalizePhone(newAddress.telefono),
+      };
       if (editingAddressId) {
-        const { data } = await usuarioService.updateDireccion(editingAddressId, newAddress);
+        const { data } = await usuarioService.updateDireccion(editingAddressId, payload);
         setAddresses(addresses.map(a => a.id === editingAddressId ? data : a));
       } else {
-        const { data } = await usuarioService.addDireccion(newAddress);
+        const { data } = await usuarioService.addDireccion(payload);
         setAddresses([...addresses, data]);
       }
       setShowModal(false);
       setNewAddress({ etiqueta: "", direccion: "", telefono: "" });
+      setAddressErrors({});
       setEditingAddressId(null);
     } catch (err) {
       console.error("Error guardando direccion", err);
-      toast.error("Hubo un error al guardar la dirección");
+      showRequestError(err, "Hubo un error al guardar la dirección");
     } finally {
       setSavingAddress(false);
     }
   };
 
   const handleDeleteAddress = async (id: number) => {
-    if (!confirm("Seguro que deseas eliminar esta direccion?")) return;
     try {
       await usuarioService.deleteDireccion(id);
       setAddresses(addresses.filter((a) => a.id !== id));
+      setAddressToDelete(null);
     } catch (err) {
       console.error("Error eliminando direccion", err);
-      toast.error("Error al eliminar la dirección");
+      showRequestError(err, "Error al eliminar la dirección");
     }
   };
 
   const handleChangePassword = async () => {
-    if (!passwordForm.passwordActual || !passwordForm.passwordNueva) {
-      toast.error("Ambas contraseñas son obligatorias");
-      return;
-    }
-    if (passwordForm.passwordNueva.length < 6) {
-      toast.error("La nueva contraseña debe tener al menos 6 caracteres");
+    const nextErrors = {
+      passwordActual: validatePassword(passwordForm.passwordActual),
+      passwordNueva: validatePassword(passwordForm.passwordNueva),
+      confirmPasswordNueva: validatePasswordConfirmation(passwordForm.passwordNueva, passwordForm.confirmPasswordNueva),
+    };
+    setPasswordErrors(nextErrors);
+    if (Object.values(nextErrors).some(Boolean)) {
+      toast.error("Corrige los campos de contraseña antes de continuar");
       return;
     }
     setSavingPassword(true);
     try {
-      await usuarioService.cambiarPassword(passwordForm);
+      await usuarioService.cambiarPassword({
+        passwordActual: passwordForm.passwordActual,
+        passwordNueva: passwordForm.passwordNueva,
+      });
       toast.success("Contraseña actualizada exitosamente");
       setShowPasswordModal(false);
-      setPasswordForm({ passwordActual: "", passwordNueva: "" });
-    } catch (err: any) {
+      setPasswordForm({ passwordActual: "", passwordNueva: "", confirmPasswordNueva: "" });
+      setPasswordErrors({});
+    } catch (err) {
       console.error("Error cambiando password", err);
-      if (err.response?.data?.mensaje) {
-        toast.error(err.response.data.mensaje);
-      } else {
-        toast.error("Error al actualizar la contraseña");
-      }
+      showRequestError(err, "Error al actualizar la contraseña");
     } finally {
       setSavingPassword(false);
     }
@@ -147,6 +225,7 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-[#F5F5F5] py-12 px-4" style={{ fontFamily: "Poppins" }}>
       <div className="max-w-6xl mx-auto">
+        <AuthBreadcrumbs items={[{ label: "Inicio", to: "/" }, { label: "Mi cuenta" }]} />
         <h1 className="text-gray-800 mb-8 font-bold text-3xl">Panel de Usuario</h1>
 
         {saved && (
@@ -184,19 +263,66 @@ export default function Profile() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-gray-700 mb-1 text-xs font-bold uppercase tracking-wide">Nombre</label>
-                      <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm" />
+                      <input
+                        value={form.name}
+                        onChange={e => handleNameFieldChange("name", e.target.value, "El nombre")}
+                        onPaste={(e) => {
+                          const pasted = e.clipboardData.getData("text");
+                          e.preventDefault();
+                          handleNameFieldChange("name", `${form.name} ${pasted}`.trim(), "El nombre");
+                        }}
+                        onBlur={() => {
+                          const normalized = normalizePersonName(form.name);
+                          setForm((prev) => ({ ...prev, name: normalized }));
+                          setTouched((prev) => ({ ...prev, name: true }));
+                          setFieldErrors((prev) => ({ ...prev, name: validateName(normalized, "El nombre") }));
+                        }}
+                        className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all ${
+                          fieldErrors.name
+                            ? "border-red-300 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                            : touched.name && form.name && !validateName(form.name, "El nombre")
+                              ? "border-emerald-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-400"
+                              : "border-gray-200 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                        }`}
+                      />
+                      <FieldFeedback error={fieldErrors.name} success={!!touched.name && !!form.name && !validateName(form.name, "El nombre")} successMessage="Nombre válido" />
                     </div>
                     <div>
                       <label className="block text-gray-700 mb-1 text-xs font-bold uppercase tracking-wide">Apellido</label>
-                      <input value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm" />
+                      <input
+                        value={form.lastName}
+                        onChange={e => handleNameFieldChange("lastName", e.target.value, "El apellido")}
+                        onPaste={(e) => {
+                          const pasted = e.clipboardData.getData("text");
+                          e.preventDefault();
+                          handleNameFieldChange("lastName", `${form.lastName} ${pasted}`.trim(), "El apellido");
+                        }}
+                        onBlur={() => {
+                          const normalized = normalizePersonName(form.lastName);
+                          setForm((prev) => ({ ...prev, lastName: normalized }));
+                          setTouched((prev) => ({ ...prev, lastName: true }));
+                          setFieldErrors((prev) => ({ ...prev, lastName: validateName(normalized, "El apellido") }));
+                        }}
+                        className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all ${
+                          fieldErrors.lastName
+                            ? "border-red-300 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                            : touched.lastName && form.lastName && !validateName(form.lastName, "El apellido")
+                              ? "border-emerald-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-400"
+                              : "border-gray-200 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                        }`}
+                      />
+                      <FieldFeedback error={fieldErrors.lastName} success={!!touched.lastName && !!form.lastName && !validateName(form.lastName, "El apellido")} successMessage="Apellido válido" />
                     </div>
                     <div>
                       <label className="block text-gray-700 mb-1 text-xs font-bold uppercase tracking-wide">Correo Electrónico</label>
                       <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm" />
+                      <p className="mt-2 text-xs text-gray-500">Si cambias tu correo, deberás iniciar sesión nuevamente.</p>
+                      {fieldErrors.email && <p className="mt-2 text-sm text-red-600">{fieldErrors.email}</p>}
                     </div>
                     <div>
                       <label className="block text-gray-700 mb-1 text-xs font-bold uppercase tracking-wide">Teléfono</label>
-                      <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm" />
+                      <input value={form.phone} onChange={e => setForm({ ...form, phone: normalizePhone(e.target.value) })} className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm" inputMode="numeric" />
+                      {fieldErrors.phone && <p className="mt-2 text-sm text-red-600">{fieldErrors.phone}</p>}
                     </div>
                     <div className="flex gap-2 pt-2">
                       <BtnPrimary onClick={handleSave} className="flex-1 py-2 text-sm">Guardar</BtnPrimary>
@@ -257,18 +383,19 @@ export default function Profile() {
                         <button onClick={() => {
                             setEditingAddressId(a.id || null);
                             setNewAddress({ etiqueta: a.etiqueta, direccion: a.direccion, telefono: a.telefono || "" });
+                            setAddressErrors({});
                             setShowModal(true);
                           }} className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => handleDeleteAddress(a.id || 0)} className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors">
+                        <button onClick={() => setAddressToDelete(a)} className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                       
                       <div className="flex items-start gap-4">
                         <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center flex-shrink-0 text-red-600">
-                          {a.etiqueta.toLowerCase().includes('trabajo') || a.etiqueta.toLowerCase().includes('oficina') ? <Building className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+                          <AddressIcon etiqueta={a.etiqueta} />
                         </div>
                         <div className="pr-12">
                           <p className="font-bold text-gray-800 text-lg mb-1">{a.etiqueta}</p>
@@ -287,65 +414,74 @@ export default function Profile() {
         </div>
 
         {/* Modal de Dirección (Glassmorphism) */}
-        {showModal && (
-          <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-100 animate-in fade-in zoom-in duration-200">
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                <h3 className="text-lg font-bold text-gray-800">{editingAddressId ? "Editar Dirección" : "Nueva Dirección"}</h3>
-                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-600 bg-white rounded-full p-1.5 shadow-sm transition-colors"><X className="w-5 h-5"/></button>
-              </div>
-              <div className="p-6 space-y-5">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">Etiqueta</label>
-                  <input placeholder="Ej: Mi Casa, Oficina, Novia" value={newAddress.etiqueta} onChange={e => setNewAddress({...newAddress, etiqueta: e.target.value})} className="w-full border border-gray-200 bg-gray-50 px-4 py-2.5 rounded-lg focus:bg-white focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">Dirección Completa</label>
-                  <textarea placeholder="Ingresa calle, número, distrito, referencias..." rows={3} value={newAddress.direccion} onChange={e => setNewAddress({...newAddress, direccion: e.target.value})} className="w-full border border-gray-200 bg-gray-50 px-4 py-2.5 rounded-lg focus:bg-white focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm resize-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">Teléfono (Quien recibe)</label>
-                  <input placeholder="Opcional" value={newAddress.telefono} onChange={e => setNewAddress({...newAddress, telefono: e.target.value})} className="w-full border border-gray-200 bg-gray-50 px-4 py-2.5 rounded-lg focus:bg-white focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm" />
-                </div>
-              </div>
-              <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
-                <button onClick={() => setShowModal(false)} className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
-                <BtnPrimary onClick={handleSaveAddress} disabled={savingAddress} className="px-6 py-2.5 text-sm shadow-md">
-                  {savingAddress ? "Guardando..." : "Guardar Dirección"}
-                </BtnPrimary>
-              </div>
-            </div>
-          </div>
-        )}
+        <ProfileAddressModal
+          open={showModal}
+          editingAddressId={editingAddressId}
+          form={newAddress}
+          errors={addressErrors}
+          saving={savingAddress}
+          onClose={() => { setShowModal(false); setAddressErrors({}); }}
+          onChange={(field, value) => {
+            setNewAddress((prev) => ({
+              ...prev,
+              [field]: field === "telefono" ? normalizePhone(value) : value,
+            }));
+            setAddressErrors((prev) => ({ ...prev, [field]: "" }));
+          }}
+          onSubmit={handleSaveAddress}
+        />
 
-        {/* Modal de Cambiar Contraseña */}
-        {showPasswordModal && (
-          <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-100 animate-in fade-in zoom-in duration-200">
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Lock className="w-5 h-5 text-gray-500"/> Cambiar Contraseña</h3>
-                <button onClick={() => setShowPasswordModal(false)} className="text-gray-400 hover:text-red-600 bg-white rounded-full p-1.5 shadow-sm transition-colors"><X className="w-5 h-5"/></button>
-              </div>
-              <div className="p-6 space-y-5">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">Contraseña Actual</label>
-                  <input type="password" placeholder="Tu contraseña actual" value={passwordForm.passwordActual} onChange={e => setPasswordForm({...passwordForm, passwordActual: e.target.value})} className="w-full border border-gray-200 bg-gray-50 px-4 py-2.5 rounded-lg focus:bg-white focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">Nueva Contraseña</label>
-                  <input type="password" placeholder="Mínimo 6 caracteres" value={passwordForm.passwordNueva} onChange={e => setPasswordForm({...passwordForm, passwordNueva: e.target.value})} className="w-full border border-gray-200 bg-gray-50 px-4 py-2.5 rounded-lg focus:bg-white focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm" />
-                </div>
-              </div>
-              <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
-                <button onClick={() => setShowPasswordModal(false)} className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
-                <BtnPrimary onClick={handleChangePassword} disabled={savingPassword} className="px-6 py-2.5 text-sm shadow-md">
-                  {savingPassword ? "Actualizando..." : "Actualizar Contraseña"}
-                </BtnPrimary>
-              </div>
-            </div>
-          </div>
-        )}
+        <ProfilePasswordModal
+          open={showPasswordModal}
+          form={passwordForm}
+          errors={passwordErrors}
+          saving={savingPassword}
+          onClose={() => { setShowPasswordModal(false); setPasswordErrors({}); }}
+          onChange={(field, value) => {
+            setPasswordForm((prev) => ({ ...prev, [field]: value }));
+            setPasswordErrors((prev) => ({
+              ...prev,
+              [field]: "",
+              ...(field === "passwordNueva" ? { confirmPasswordNueva: "" } : {}),
+            }));
+          }}
+          onSubmit={handleChangePassword}
+        />
+
+        <ProfileDeleteAddressModal
+          address={addressToDelete}
+          onCancel={() => setAddressToDelete(null)}
+          onConfirm={handleDeleteAddress}
+        />
       </div>
+
+      <AlertDialog open={showEmailConfirm} onOpenChange={setShowEmailConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar cambio de correo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Si cambias tu correo deberás iniciar sesión nuevamente para proteger tu cuenta.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                try {
+                  await saveProfile();
+                } catch (err) {
+                  console.error("Error guardando perfil", err);
+                  showRequestError(err, "Hubo un error al guardar los cambios");
+                } finally {
+                  setShowEmailConfirm(false);
+                }
+              }}
+            >
+              Continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

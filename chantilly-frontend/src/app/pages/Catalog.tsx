@@ -37,6 +37,7 @@ export default function Catalog() {
   const [search, setSearch] = useState("");
   const [products, setProducts] = useState<ViewProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const { addToCart } = useApp();
   const initialMount = useRef(true);
 
@@ -49,12 +50,14 @@ export default function Catalog() {
         ]);
         setProducts(productsRes.data.map(mapProductoToView));
         setCategories(categoriesRes.data);
+        setLoadError("");
         if (initialCat) {
           const match = categoriesRes.data.find((c) => c.nombre.toLowerCase() === initialCat.toLowerCase());
           if (match?.id) setSelectedCat(match.id);
         }
       } catch (error) {
         console.error("Error cargando catalogo", error);
+        setLoadError("No pudimos cargar el catálogo en este momento.");
       } finally {
         setLoading(false);
       }
@@ -73,17 +76,21 @@ export default function Catalog() {
         if (search.trim()) {
           const response = await productoService.getBuscar(search.trim());
           setProducts(response.data.map(mapProductoToView));
+          setLoadError("");
           return;
         }
         if (selectedCat) {
           const response = await productoService.getByCategoria(selectedCat);
           setProducts(response.data.map(mapProductoToView));
+          setLoadError("");
           return;
         }
         const response = await productoService.getAll();
         setProducts(response.data.map(mapProductoToView));
+        setLoadError("");
       } catch (error) {
         console.error("Error consultando catalogo", error);
+        setLoadError("No pudimos actualizar los productos. Intenta nuevamente.");
       } finally {
         setLoading(false);
       }
@@ -154,6 +161,11 @@ export default function Catalog() {
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <ProductSkeleton key={i} />)}
+          </div>
+        ) : loadError ? (
+          <div className="bg-white rounded-3xl shadow-sm border border-red-100 py-24 text-center">
+            <h3 className="text-2xl font-bold text-gray-800 mb-2">No pudimos cargar el catálogo</h3>
+            <p className="text-gray-500">{loadError}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 py-24 text-center">

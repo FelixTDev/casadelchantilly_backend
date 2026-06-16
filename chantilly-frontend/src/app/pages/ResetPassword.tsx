@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { Link, useParams, useNavigate } from "react-router"; // Fixed to use 'react-router-dom' standard but checking other files they use 'react-router'
+import { Link, useParams, useNavigate } from "react-router";
 import { Home, KeyRound, CheckCircle } from "lucide-react";
 import { BtnPrimary } from "../components/shared";
 import axiosInstance from "../../lib/axiosInstance";
+import { validatePassword, validatePasswordConfirmation } from "../lib/validation";
+import { getUserErrorMessage } from "../../lib/apiError";
 
 export default function ResetPassword() {
   const { token } = useParams<{ token: string }>();
@@ -13,15 +15,17 @@ export default function ResetPassword() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({ password: "", confirmPassword: "" });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden");
-      return;
-    }
-    if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres");
+    const nextErrors = {
+      password: validatePassword(password),
+      confirmPassword: validatePasswordConfirmation(password, confirmPassword),
+    };
+    setFieldErrors(nextErrors);
+    if (nextErrors.password || nextErrors.confirmPassword) {
+      setError("Corrige los campos marcados antes de continuar");
       return;
     }
 
@@ -37,7 +41,7 @@ export default function ResetPassword() {
       setTimeout(() => navigate("/login"), 3000);
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.mensaje ?? "Enlace inválido o expirado");
+        setError(getUserErrorMessage(err, "Enlace inválido o expirado"));
       } else {
         setError("No se pudo restablecer la contraseña");
       }
@@ -69,26 +73,39 @@ export default function ResetPassword() {
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-[#333] mb-1" style={{ fontSize: 14, fontWeight: 600 }}>Nueva Contraseña</label>
+                <label htmlFor="reset-password" className="block text-[#333] mb-1" style={{ fontSize: 14, fontWeight: 600 }}>Nueva Contraseña</label>
                 <input 
+                  id="reset-password"
                   type="password" 
                   value={password} 
-                  onChange={e => setPassword(e.target.value)} 
+                  onChange={e => {
+                    setPassword(e.target.value);
+                    setFieldErrors((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+                  }}
+                  onBlur={() => setFieldErrors((prev) => ({ ...prev, password: validatePassword(password) }))}
                   className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-[#F5F5F5] focus:border-[#D32F2F] focus:outline-none" 
                   placeholder="Mínimo 6 caracteres"
                 />
+                <p className="mt-2 text-xs text-gray-500">Debe tener al menos 6 caracteres.</p>
+                {fieldErrors.password && <p className="mt-2 text-sm text-red-600">{fieldErrors.password}</p>}
               </div>
               <div>
-                <label className="block text-[#333] mb-1" style={{ fontSize: 14, fontWeight: 600 }}>Confirmar Contraseña</label>
+                <label htmlFor="reset-confirm-password" className="block text-[#333] mb-1" style={{ fontSize: 14, fontWeight: 600 }}>Confirmar Contraseña</label>
                 <input 
+                  id="reset-confirm-password"
                   type="password" 
                   value={confirmPassword} 
-                  onChange={e => setConfirmPassword(e.target.value)} 
+                  onChange={e => {
+                    setConfirmPassword(e.target.value);
+                    setFieldErrors((prev) => ({ ...prev, confirmPassword: "" }));
+                  }}
+                  onBlur={() => setFieldErrors((prev) => ({ ...prev, confirmPassword: validatePasswordConfirmation(password, confirmPassword) }))}
                   className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-[#F5F5F5] focus:border-[#D32F2F] focus:outline-none" 
                   placeholder="Repite la contraseña"
                 />
+                {fieldErrors.confirmPassword && <p className="mt-2 text-sm text-red-600">{fieldErrors.confirmPassword}</p>}
               </div>
-              <BtnPrimary type="submit" className="w-full" disabled={loading}>
+              <BtnPrimary type="submit" className="w-full" disabled={loading || !token || !!validatePassword(password) || !!validatePasswordConfirmation(password, confirmPassword)}>
                 {loading ? "Guardando..." : "Guardar Contraseña"}
               </BtnPrimary>
             </form>

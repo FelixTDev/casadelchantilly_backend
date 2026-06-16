@@ -1,23 +1,34 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { CheckCircle, Package, Download, Gift, FileText, ArrowRight, Wallet, PartyPopper } from "lucide-react";
-import { BtnPrimary, BtnSecondary, StatusBadge, toUiStatus } from "../components/shared";
+import { ArrowRight, Download, FileText, MapPin, PartyPopper, Wallet } from "lucide-react";
+import { BtnPrimary, BtnSecondary, PaymentStatusBadge, StatusBadge, toUiStatus } from "../components/shared";
 import { pedidoService, PedidoApi } from "../../services/pedidoService";
 import { toast } from "sonner";
+import { AuthBreadcrumbs } from "../components/AuthBreadcrumbs";
+import { showRequestError } from "../../lib/notifyError";
 
 export default function Confirmation() {
   const location = useLocation();
   const pedidoId = location.state?.pedidoId as number | undefined;
   const [pedido, setPedido] = useState<PedidoApi | null>(null);
+  const [loading, setLoading] = useState(!!pedidoId);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     const load = async () => {
-      if (!pedidoId) return;
+      if (!pedidoId) {
+        setLoading(false);
+        setLoadError("No encontramos una orden reciente para mostrar.");
+        return;
+      }
       try {
         const response = await pedidoService.getById(pedidoId);
         setPedido(response.data);
       } catch (error) {
         console.error("Error cargando pedido", error);
+        setLoadError("No se pudo cargar el detalle del pedido.");
+      } finally {
+        setLoading(false);
       }
     };
     load();
@@ -27,139 +38,174 @@ export default function Confirmation() {
     if (!pedidoId) return;
     try {
       const response = await pedidoService.descargarBoleta(pedidoId);
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const blob = new Blob([response.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `Boleta_Chantilly_${pedido?.codigoPedido || pedidoId}.pdf`);
+      link.setAttribute("download", `Boleta_Chantilly_${pedido?.codigoPedido || pedidoId}.pdf`);
       document.body.appendChild(link);
       link.click();
-      link.parentNode?.removeChild(link);
+      link.remove();
       window.URL.revokeObjectURL(url);
-      toast.success("¡Boleta descargada con éxito!");
+      toast.success("Boleta descargada con éxito");
     } catch (error) {
       console.error("Error al descargar boleta", error);
-      toast.error("Hubo un problema al descargar la boleta. Inténtalo más tarde.");
+      showRequestError(error, "Hubo un problema al descargar la boleta.");
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] py-12 px-4" style={{ fontFamily: "Poppins" }}>
-      <div className="max-w-2xl mx-auto">
-        
-        {/* Banner de Celebración */}
-        <div className="bg-[#D32F2F] text-white rounded-t-2xl p-8 text-center relative overflow-hidden">
-          {/* Círculos decorativos en el fondo */}
-          <div className="absolute -top-10 -left-10 w-32 h-32 bg-white opacity-10 rounded-full blur-xl"></div>
-          <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-white opacity-10 rounded-full blur-xl"></div>
-          
+    <div className="min-h-screen bg-[#F7F5F3] px-4 py-12" style={{ fontFamily: "Poppins" }}>
+      <div className="mx-auto max-w-3xl">
+        <AuthBreadcrumbs items={[{ label: "Inicio", to: "/" }, { label: "Mis pedidos", to: "/mis-pedidos" }, { label: "Confirmación" }]} />
+        <div className="overflow-hidden rounded-t-3xl bg-[#B83A3A] p-8 text-center text-white relative">
+          <div className="absolute -left-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-xl" />
+          <div className="absolute -bottom-10 -right-10 h-32 w-32 rounded-full bg-[#F5C518]/20 blur-xl" />
           <div className="relative z-10 flex flex-col items-center">
-            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-5 shadow-lg transform hover:scale-110 transition-transform">
-              <PartyPopper className="w-10 h-10 text-[#D32F2F]" />
+            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-lg">
+              <PartyPopper className="h-10 w-10 text-[#B83A3A]" />
             </div>
-            <h1 className="text-3xl mb-2" style={{ fontWeight: 800 }}>¡Pedido Confirmado!</h1>
-            <p className="text-red-100 text-sm md:text-base max-w-md">
-              Tu pedido ha sido registrado exitosamente y ya lo estamos procesando con mucho amor.
+            <p className="rounded-full bg-white/10 px-4 py-1 text-xs font-bold uppercase tracking-[0.2em] text-white/80">Compra registrada</p>
+            <h1 className="mt-4 text-3xl font-extrabold">Tu celebración ya está en marcha</h1>
+            <p className="mt-2 max-w-md text-sm text-red-100">
+              Registramos tu pedido, asociamos el pago y dejamos listo el seguimiento. Desde aquí puedes descargar la boleta y revisar el avance cuando quieras.
             </p>
           </div>
         </div>
 
-        {/* Tarjeta Principal */}
-        <div className="bg-white rounded-b-2xl shadow-xl p-6 md:p-8 border-t-0">
-          
+        <div className="rounded-b-3xl bg-white p-6 shadow-xl md:p-8">
           {pedido ? (
             <div className="space-y-8">
-              {/* Info Resumen */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Orden N°</span>
-                  <span className="text-gray-800 font-bold text-lg">{pedido.codigoPedido}</span>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-gray-500">Orden</span>
+                  <span className="mt-1 block text-lg font-bold text-gray-800">{pedido.codigoPedido}</span>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <span className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-1">Fecha</span>
-                  <span className="text-gray-800 font-bold text-lg">{pedido.creadoEn?.slice(0, 10)}</span>
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-gray-500">Estado del pedido</span>
+                  <div className="mt-2"><StatusBadge status={toUiStatus(pedido.estado)} /></div>
+                </div>
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-gray-500">Estado del pago</span>
+                  <div className="mt-2"><PaymentStatusBadge status={pedido.pago?.estadoPago} /></div>
                 </div>
               </div>
 
-              {/* Boleta Digital */}
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <div className="bg-gray-50 border-b border-gray-200 px-5 py-3 flex items-center justify-between">
-                  <h3 className="font-bold text-gray-700 flex items-center gap-2">
-                    <FileText className="w-4 h-4" /> Resumen de Compra
+              <div className="rounded-3xl border border-gray-200 overflow-hidden">
+                <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-4">
+                  <h3 className="flex items-center gap-2 font-bold text-gray-700">
+                    <FileText className="h-4 w-4" />
+                    Resumen de compra
                   </h3>
-                  <StatusBadge status={toUiStatus(pedido.estado)} />
+                  {pedido.pago?.metodoPago && (
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                      {pedido.pago.metodoPago}
+                    </span>
+                  )}
                 </div>
-                
-                <div className="p-5 space-y-3">
-                  {pedido.items.map(item => (
-                    <div key={item.id} className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600 font-medium">
-                        <span className="text-gray-400 mr-2">{item.cantidad}x</span>
-                        {item.nombreProducto}
-                      </span>
-                      <span className="text-gray-800 font-semibold">S/ {item.subtotal.toFixed(2)}</span>
+
+                <div className="space-y-3 p-5">
+                  {pedido.items.map((item) => (
+                    <div key={item.id} className="flex items-start justify-between gap-4 text-sm">
+                      <div>
+                        <span className="font-medium text-gray-700">
+                          <span className="mr-2 text-gray-400">{item.cantidad}x</span>
+                          {item.nombreProducto}
+                        </span>
+                        {item.personalizacion && (
+                          <p className="mt-1 text-xs text-gray-500">Dedicatoria: {item.personalizacion}</p>
+                        )}
+                      </div>
+                      <span className="font-semibold text-gray-800">S/ {Number(item.subtotal || 0).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="bg-gray-50 p-5 border-t border-gray-200 space-y-2 text-sm">
+                <div className="space-y-2 border-t border-gray-200 bg-gray-50 p-5 text-sm">
                   <div className="flex justify-between text-gray-600">
                     <span>Subtotal</span>
-                    <span>S/ {pedido.subtotal.toFixed(2)}</span>
+                    <span>S/ {Number(pedido.subtotal || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-gray-600">
                     <span>Delivery</span>
-                    <span>S/ {pedido.costoEnvio.toFixed(2)}</span>
+                    <span>S/ {Number(pedido.costoEnvio || 0).toFixed(2)}</span>
                   </div>
-                  {pedido.descuento > 0 && (
-                    <div className="flex justify-between text-green-600 font-semibold">
+                  {Number(pedido.descuento || 0) > 0 && (
+                    <div className="flex justify-between font-semibold text-green-600">
                       <span>Descuento</span>
-                      <span>- S/ {pedido.descuento.toFixed(2)}</span>
+                      <span>- S/ {Number(pedido.descuento || 0).toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between items-center pt-2 mt-2 border-t border-gray-200">
-                    <span className="font-bold text-gray-800 text-base">Total a Pagar</span>
-                    <span className="font-bold text-[#D32F2F] text-xl">S/ {pedido.total.toFixed(2)}</span>
+                  <div className="mt-2 flex items-center justify-between border-t border-gray-200 pt-3">
+                    <span className="text-base font-bold text-gray-800">Total</span>
+                    <span className="text-xl font-bold text-[#D32F2F]">S/ {Number(pedido.total || 0).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Instrucciones de Pago / Notificación */}
-              <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-xl flex gap-4 items-start">
-                <div className="bg-yellow-100 p-2 rounded-full shrink-0">
-                  <Wallet className="w-6 h-6 text-yellow-700" />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-full bg-yellow-100 p-2 text-yellow-700">
+                      <Wallet className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-yellow-800">Pago registrado</h4>
+                      <p className="mt-1 text-sm text-yellow-700">
+                        Estado actual: <strong>{pedido.pago?.estadoPago || "PENDIENTE"}</strong>. Si pagaste con Yape, Plin o transferencia, el equipo lo validará con tu referencia.
+                      </p>
+                      {pedido.pago?.referencia && (
+                        <p className="mt-2 text-xs font-semibold text-yellow-800">Referencia: {pedido.pago.referencia}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-yellow-800 mb-1">Prepara tu pago</h4>
-                  <p className="text-sm text-yellow-700 leading-relaxed">
-                    Si elegiste Yape o Transferencia, recuerda tener a la mano tu comprobante. Nuestro equipo verificará tu orden pronto y <strong>te notificaremos cuando cambie de estado.</strong>
-                  </p>
+
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-full bg-white p-2 text-gray-600">
+                      <MapPin className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800">Entrega</h4>
+                      <p className="mt-1 text-sm text-gray-600">
+                        {pedido.modalidadEntrega === "DELIVERY" ? pedido.direccionDetalle || "Delivery con dirección registrada" : "Recojo en tienda"}
+                      </p>
+                      {pedido.fechaEntrega && (
+                        <p className="mt-2 text-xs font-semibold text-gray-500">Programado para: {pedido.fechaEntrega}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Botón Descargar Boleta */}
-              <button 
+              <button
                 onClick={handleDownloadPDF}
-                className="w-full flex items-center justify-center gap-2 py-3.5 bg-gray-900 hover:bg-black text-white font-bold rounded-xl transition-colors shadow-md"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-900 py-3.5 font-bold text-white shadow-md transition hover:bg-black"
               >
-                <Download className="w-5 h-5" />
-                Descargar Boleta (PDF)
+                <Download className="h-5 w-5" />
+                Descargar boleta (PDF)
               </button>
-
             </div>
+          ) : loading ? (
+            <div className="flex justify-center p-10"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#D32F2F]" /></div>
           ) : (
-            <div className="flex justify-center p-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D32F2F]"></div></div>
+            <div className="space-y-4 py-10 text-center">
+              <p className="text-gray-600">{loadError}</p>
+              <div className="flex flex-col justify-center gap-4 sm:flex-row">
+                <Link to="/mis-pedidos"><BtnSecondary>Ver Mis Pedidos</BtnSecondary></Link>
+                <Link to="/catalogo"><BtnPrimary>Ir al Catálogo</BtnPrimary></Link>
+              </div>
+            </div>
           )}
 
-          <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col sm:flex-row gap-4">
+          <div className="mt-8 flex flex-col gap-4 border-t border-gray-100 pt-6 sm:flex-row">
             <Link to="/mis-pedidos" className="flex-1">
-              <BtnSecondary className="w-full h-12 flex items-center justify-center gap-2">
-                Ver Mis Pedidos
-              </BtnSecondary>
+              <BtnSecondary className="h-12 w-full">Ver Mis Pedidos</BtnSecondary>
             </Link>
             <Link to="/catalogo" className="flex-1">
-              <BtnPrimary className="w-full h-12 flex items-center justify-center gap-2">
-                Seguir Comprando <ArrowRight className="w-4 h-4" />
+              <BtnPrimary className="flex h-12 w-full items-center justify-center gap-2">
+                Seguir Comprando <ArrowRight className="h-4 w-4" />
               </BtnPrimary>
             </Link>
           </div>
@@ -168,4 +214,3 @@ export default function Confirmation() {
     </div>
   );
 }
-

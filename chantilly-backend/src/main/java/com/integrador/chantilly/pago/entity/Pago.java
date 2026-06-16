@@ -25,10 +25,10 @@ public class Pago {
     @JoinColumn(name = "id_pedido")
     private Pedido pedido;
 
-    @Column(name = "metodo_pago", length = 30)
+    @Column(name = "metodo_pago", nullable = false, columnDefinition = "ENUM('EFECTIVO','TRANSFERENCIA','YAPE','PLIN')")
     private String metodoPago;
 
-    @Column(name = "estado_pago", length = 30)
+    @Column(name = "estado_pago", columnDefinition = "ENUM('PENDIENTE','CONFIRMADO','RECHAZADO','EXPIRADO','REEMBOLSADO')")
     private String estadoPago;
 
     @Column(nullable = false, precision = 10, scale = 2)

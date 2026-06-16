@@ -33,7 +33,7 @@ public class Pedido {
     @Column(nullable = false, length = 30)
     private String estado;
 
-    @Column(name = "modalidad_entrega", length = 30)
+    @Column(name = "modalidad_entrega", nullable = false, columnDefinition = "ENUM('DELIVERY','RECOJO_TIENDA')")
     private String modalidadEntrega;
 
     @Column(name = "id_direccion")

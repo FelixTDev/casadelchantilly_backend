@@ -74,11 +74,13 @@ public class PedidoController {
     }
 
     @GetMapping("/{id}/boleta")
-    public ResponseEntity<byte[]> descargarBoleta(@PathVariable Integer id) {
-        byte[] pdf = boletaService.generarBoleta(id);
+    public ResponseEntity<byte[]> descargarBoleta(@PathVariable Integer id, Authentication authentication) {
+        Integer usuarioId = obtenerUsuarioId(authentication);
+        PedidoDTO pedido = pedidoService.obtenerPorId(id, usuarioId);
+        byte[] pdf = boletaService.generarBoleta(id, usuarioId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", "boleta-" + id + ".pdf");
+        headers.setContentDispositionFormData("attachment", "boleta-" + pedido.getCodigoPedido() + ".pdf");
         return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
     }
 

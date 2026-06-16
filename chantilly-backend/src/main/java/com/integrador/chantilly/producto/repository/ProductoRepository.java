@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface ProductoRepository extends JpaRepository<Producto, Integer> {
+    List<Producto> findAllByOrderByNombreAsc();
+
     List<Producto> findByDisponibleTrue();
 
     Page<Producto> findByDisponibleTrue(Pageable pageable);
@@ -16,4 +18,3 @@ public interface ProductoRepository extends JpaRepository<Producto, Integer> {
 
     List<Producto> findByNombreContainingIgnoreCaseAndDisponibleTrue(String nombre);
 }
-

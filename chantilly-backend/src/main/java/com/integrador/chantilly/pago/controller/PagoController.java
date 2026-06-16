@@ -1,5 +1,6 @@
 package com.integrador.chantilly.pago.controller;
 
+import com.integrador.chantilly.pago.dto.ActualizarEstadoPagoRequest;
 import com.integrador.chantilly.pago.dto.PagoDTO;
 import com.integrador.chantilly.pago.service.PagoService;
 import com.integrador.chantilly.usuario.repository.UsuarioRepository;
@@ -14,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/pagos")
@@ -36,8 +39,24 @@ public class PagoController {
     }
 
     @PutMapping("/{id}/confirmar")
-    public ResponseEntity<PagoDTO> confirmarPago(@PathVariable Integer id) {
-        return ResponseEntity.ok(pagoService.confirmarPago(id));
+    public ResponseEntity<PagoDTO> confirmarPago(@PathVariable Integer id,
+                                                 Authentication authentication) {
+        return ResponseEntity.ok(pagoService.actualizarEstadoPago(id, "CONFIRMADO", null, obtenerUsuarioId(authentication)));
+    }
+
+    @PutMapping("/{id}/estado")
+    public ResponseEntity<PagoDTO> actualizarEstadoPago(@PathVariable Integer id,
+                                                        @RequestBody ActualizarEstadoPagoRequest request,
+                                                        Authentication authentication) {
+        return ResponseEntity.ok(
+                pagoService.actualizarEstadoPago(id, request.getEstadoPago(), request.getReferencia(), obtenerUsuarioId(authentication))
+        );
+    }
+
+    @GetMapping
+    public ResponseEntity<List<PagoDTO>> listarPagos(@RequestParam(required = false) String estado,
+                                                     @RequestParam(required = false) String metodo) {
+        return ResponseEntity.ok(pagoService.listarPagos(estado, metodo));
     }
 
     @GetMapping("/pedido/{pedidoId}")

@@ -4,19 +4,24 @@ import { Link } from "react-router";
 import { CheckCircle, ArrowLeft, Mail, ArrowRight, KeyRound } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { IMAGES } from "../data/mock-data";
+import { validateEmail } from "../lib/validation";
+import { getUserErrorMessage } from "../../lib/apiError";
 
 export default function Recovery() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [fieldError, setFieldError] = useState("");
   const { recuperarPassword, loading } = useApp();
   const isMockToken = /^[0-9a-fA-F-]{20,}$/.test(successMessage);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
-      setError("Por favor ingresa tu correo electrónico.");
+    const nextFieldError = validateEmail(email);
+    setFieldError(nextFieldError);
+    if (nextFieldError) {
+      setError("Corrige el correo antes de continuar.");
       return;
     }
 
@@ -29,7 +34,7 @@ export default function Recovery() {
       setSent(true);
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.mensaje ?? "No se pudo procesar la solicitud");
+        setError(getUserErrorMessage(err, "No se pudo procesar la solicitud"));
       } else {
         setError("No se pudo procesar la solicitud");
       }
@@ -56,7 +61,7 @@ export default function Recovery() {
               </div>
               <h2 className="text-gray-900 font-extrabold text-3xl mb-4">¡Correo enviado!</h2>
               <p className="text-gray-500 text-base mb-8">
-                Hemos enviado un enlace de recuperación a <strong>{email}</strong>. Revisa tu bandeja de entrada (y la carpeta de spam por si acaso).
+                Hemos procesado la solicitud para <strong>{email}</strong>. Revisa tu bandeja de entrada y la carpeta de spam.
               </p>
               
               {isMockToken && (
@@ -95,24 +100,31 @@ export default function Recovery() {
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                  <label className="block text-gray-700 mb-2 font-bold text-sm">Correo electrónico</label>
+                  <label htmlFor="recovery-email" className="block text-gray-700 mb-2 font-bold text-sm">Correo electrónico</label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                       <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-[#D32F2F] transition-colors" />
                     </div>
                     <input 
+                      id="recovery-email"
                       type="email" 
                       value={email} 
-                      onChange={e => setEmail(e.target.value)} 
+                      onChange={e => {
+                        setEmail(e.target.value);
+                        setFieldError("");
+                      }}
+                      onBlur={() => setFieldError(validateEmail(email))}
                       placeholder="tu@correo.com" 
                       className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:bg-white transition-all" 
+                      aria-invalid={!!fieldError}
                     />
                   </div>
+                  {fieldError && <p className="mt-2 text-sm text-red-600">{fieldError}</p>}
                 </div>
                 
                 <button 
                   type="submit" 
-                  disabled={loading}
+                  disabled={loading || !!validateEmail(email)}
                   className="w-full flex justify-center items-center gap-2 bg-[#D32F2F] hover:bg-red-700 text-white font-bold py-4 rounded-full shadow-lg hover:shadow-red-900/20 transform hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-4"
                 >
                   {loading ? "Procesando..." : (

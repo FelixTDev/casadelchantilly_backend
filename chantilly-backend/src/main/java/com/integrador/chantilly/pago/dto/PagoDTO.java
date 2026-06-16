@@ -6,6 +6,9 @@ import java.time.LocalDateTime;
 public class PagoDTO {
     private Integer id;
     private Integer pedidoId;
+    private String codigoPedido;
+    private String clienteNombre;
+    private String modalidadEntrega;
     private String metodoPago;
     private String estadoPago;
     private BigDecimal monto;
@@ -16,6 +19,12 @@ public class PagoDTO {
     public void setId(Integer id) { this.id = id; }
     public Integer getPedidoId() { return pedidoId; }
     public void setPedidoId(Integer pedidoId) { this.pedidoId = pedidoId; }
+    public String getCodigoPedido() { return codigoPedido; }
+    public void setCodigoPedido(String codigoPedido) { this.codigoPedido = codigoPedido; }
+    public String getClienteNombre() { return clienteNombre; }
+    public void setClienteNombre(String clienteNombre) { this.clienteNombre = clienteNombre; }
+    public String getModalidadEntrega() { return modalidadEntrega; }
+    public void setModalidadEntrega(String modalidadEntrega) { this.modalidadEntrega = modalidadEntrega; }
     public String getMetodoPago() { return metodoPago; }
     public void setMetodoPago(String metodoPago) { this.metodoPago = metodoPago; }
     public String getEstadoPago() { return estadoPago; }

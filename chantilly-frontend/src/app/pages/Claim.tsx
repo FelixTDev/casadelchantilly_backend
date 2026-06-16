@@ -4,6 +4,8 @@ import { ArrowLeft, CheckCircle, Package, AlertTriangle, MessageSquare, Clock, S
 import { BtnPrimary } from "../components/shared";
 import { pedidoService, PedidoApi } from "../../services/pedidoService";
 import { reclamoService } from "../../services/reclamoService";
+import { toast } from "sonner";
+import { showRequestError } from "../../lib/notifyError";
 
 export default function Claim() {
   const [type, setType] = useState("");
@@ -37,7 +39,7 @@ export default function Claim() {
       setSubmitted(true);
     } catch (error) {
       console.error("Error creando reclamo", error);
-      alert("No se pudo registrar el reclamo. Por favor, intenta nuevamente.");
+      showRequestError(error, "No se pudo registrar el reclamo. Por favor, intenta nuevamente.");
     } finally {
       setIsSubmitting(false);
     }

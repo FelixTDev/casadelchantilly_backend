@@ -1,31 +1,37 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { DollarSign, ShoppingBag, AlertTriangle, Users, TrendingUp, ArrowUpRight, ChevronRight, Clock, Package, BarChart3 } from "lucide-react";
+import { DollarSign, ShoppingBag, AlertTriangle, Users, TrendingUp, ArrowUpRight, ChevronRight, Clock, Package, BarChart3, Activity, Bike, ReceiptText, BadgeCheck, FileClock } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { StatusBadge, toUiStatus } from "../../components/shared";
 import { reporteService, DashboardApi } from "../../../services/reporteService";
 import { pedidoService, PedidoApi } from "../../../services/pedidoService";
+import { adminActivityService, AdminActivityLogApi } from "../../../services/adminActivityService";
+import { AdminPanel } from "../../components/adminUi";
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardApi | null>(null);
   const [orders, setOrders] = useState<PedidoApi[]>([]);
+  const [activity, setActivity] = useState<AdminActivityLogApi[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const load = async () => {
+    try {
+      const [dashRes, ordersRes, activityRes] = await Promise.all([
+        reporteService.getDashboard(),
+        pedidoService.getTodos(),
+        adminActivityService.getRecientes(),
+      ]);
+      setData(dashRes.data);
+      setOrders(ordersRes.data.slice(0, 5));
+      setActivity(activityRes.data);
+    } catch (error) {
+      console.error("Error cargando dashboard", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [dashRes, ordersRes] = await Promise.all([
-          reporteService.getDashboard(),
-          pedidoService.getTodos(),
-        ]);
-        setData(dashRes.data);
-        setOrders(ordersRes.data.slice(0, 5));
-      } catch (error) {
-        console.error("Error cargando dashboard", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     load();
   }, []);
 
@@ -66,6 +72,42 @@ export default function Dashboard() {
       iconBg: "#1d4ed8",
       hint: "Registrados",
     },
+    {
+      label: "Conversión",
+      value: data ? `${Number(data.tasaConversion || 0).toFixed(1)}%` : "—",
+      icon: Activity,
+      accent: "#7c3aed",
+      bg: "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)",
+      iconBg: "#7c3aed",
+      hint: "Pagos confirmados vs pedidos",
+    },
+    {
+      label: "Ticket Delivery",
+      value: data ? `S/ ${Number(data.ticketDelivery || 0).toFixed(2)}` : "—",
+      icon: ReceiptText,
+      accent: "#0f766e",
+      bg: "linear-gradient(135deg, #ecfeff 0%, #ccfbf1 100%)",
+      iconBg: "#0f766e",
+      hint: "Promedio por delivery",
+    },
+    {
+      label: "Ticket Recojo",
+      value: data ? `S/ ${Number(data.ticketRecojoTienda || 0).toFixed(2)}` : "—",
+      icon: Package,
+      accent: "#b45309",
+      bg: "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)",
+      iconBg: "#b45309",
+      hint: "Promedio en tienda",
+    },
+    {
+      label: "Tiempo Entrega",
+      value: data ? `${Number(data.tiempoEntregaPromedioHoras || 0).toFixed(1)} h` : "—",
+      icon: Bike,
+      accent: "#2563eb",
+      bg: "linear-gradient(135deg, #eef2ff 0%, #dbeafe 100%)",
+      iconBg: "#2563eb",
+      hint: "Promedio hasta entregado",
+    },
   ];
 
   const chartData = (data?.ventasSemana || []).map(d => ({
@@ -105,10 +147,10 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 font-bold text-sm hover:bg-gray-50 transition-all shadow-sm">
+          <Link to="/admin/reportes" className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 font-bold text-sm hover:bg-gray-50 transition-all shadow-sm">
             Descargar reporte
-          </button>
-          <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-[#D32F2F] rounded-xl text-white font-bold text-sm hover:bg-[#b71c1c] transition-all shadow-sm shadow-red-900/20">
+          </Link>
+          <button onClick={load} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-[#D32F2F] rounded-xl text-white font-bold text-sm hover:bg-[#b71c1c] transition-all shadow-sm shadow-red-900/20">
             Actualizar
           </button>
         </div>
@@ -181,13 +223,15 @@ export default function Dashboard() {
         {/* Quick Stats Panel */}
         <div className="bg-white rounded-3xl p-6 flex flex-col" style={{ boxShadow: "0 10px 40px -10px rgba(0,0,0,0.08)" }}>
           <h2 className="text-gray-900 font-extrabold text-lg mb-1">Acceso Rápido</h2>
-          <p className="text-gray-400 text-xs font-medium mb-6">Secciones frecuentes</p>
+          <p className="text-gray-400 text-xs font-medium mb-6">Secciones frecuentes y atajos operativos</p>
           <div className="flex flex-col gap-2 flex-1">
             {[
               { label: "Ver todos los pedidos", href: "/admin/pedidos", color: "#fef3c7", iconColor: "#d97706", icon: ShoppingBag },
               { label: "Gestionar productos", href: "/admin/productos", color: "#f0fdf4", iconColor: "#16a34a", icon: Package },
               { label: "Ver alertas de stock", href: "/admin/alertas", color: "#fff5f5", iconColor: "#D32F2F", icon: AlertTriangle },
               { label: "Reportes de ventas", href: "/admin/reportes", color: "#eff6ff", iconColor: "#1d4ed8", icon: BarChart3 },
+              { label: "Confirmar pagos", href: "/admin/pagos", color: "#ecfeff", iconColor: "#0f766e", icon: BadgeCheck },
+              { label: "Resolver reclamos", href: "/admin/reclamos", color: "#fdf2f8", iconColor: "#be185d", icon: FileClock },
             ].map(item => (
               <Link key={item.href} to={item.href}
                 className="flex items-center gap-3 p-3 rounded-2xl hover:bg-gray-50 transition-all group border border-gray-100 hover:border-gray-200"
@@ -203,6 +247,88 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="mb-8 grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <AdminPanel className="p-5">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Atajo comercial</p>
+          <h3 className="mt-2 text-lg font-extrabold text-gray-900">Promociones activas y edición rápida</h3>
+          <p className="mt-2 text-sm font-medium leading-relaxed text-gray-500">Revisa campañas vigentes, corrige descuentos y apaga promos vencidas sin salir del panel.</p>
+          <Link to="/admin/promociones" className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-gray-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-black">
+            Ir a promociones
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </AdminPanel>
+        <AdminPanel className="p-5">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Atajo operativo</p>
+          <h3 className="mt-2 text-lg font-extrabold text-gray-900">Desactivación masiva de catálogo</h3>
+          <p className="mt-2 text-sm font-medium leading-relaxed text-gray-500">Usa la selección múltiple en productos para retirar lotes, depurar duplicados o limpiar inventario estacional.</p>
+          <Link to="/admin/productos" className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50">
+            Abrir catálogo
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </AdminPanel>
+        <AdminPanel className="p-5">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Atajo de control</p>
+          <h3 className="mt-2 text-lg font-extrabold text-gray-900">Auditoría reciente</h3>
+          <p className="mt-2 text-sm font-medium leading-relaxed text-gray-500">Los cambios críticos ya quedan registrados y visibles para seguimiento administrativo diario.</p>
+          <button onClick={load} className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-[#D32F2F] transition hover:bg-red-100">
+            Actualizar actividad
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </AdminPanel>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_0.6fr] gap-5 mb-8">
+        <AdminPanel className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-gray-900 font-extrabold text-lg">Actividad Administrativa</h2>
+              <p className="text-gray-400 text-xs font-medium mt-0.5">Cambios críticos recientes del panel</p>
+            </div>
+            <div className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-[#D32F2F]">{activity.length} eventos</div>
+          </div>
+          {activity.length === 0 ? (
+            <div className="text-center py-10 text-gray-400 text-sm font-medium">Aún no hay eventos críticos registrados.</div>
+          ) : (
+            <div className="space-y-3">
+              {activity.slice(0, 8).map((item) => (
+                <div key={item.id} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">{item.resumen}</p>
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                        {item.modulo} · {item.accion} · {item.adminNombre || "Administrador"}
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-semibold text-gray-400 whitespace-nowrap">{item.creadoEn?.slice(0, 16).replace("T", " ")}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </AdminPanel>
+
+        <AdminPanel className="p-6">
+          <h2 className="text-gray-900 font-extrabold text-lg mb-1">Lectura Operativa</h2>
+          <p className="text-gray-400 text-xs font-medium mb-5">Indicadores listos para decisión rápida</p>
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-emerald-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Conversión</p>
+              <p className="mt-2 text-2xl font-extrabold text-emerald-900">{Number(data?.tasaConversion || 0).toFixed(1)}%</p>
+            </div>
+            <div className="rounded-2xl bg-sky-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-sky-700">Tiempo promedio de entrega</p>
+              <p className="mt-2 text-2xl font-extrabold text-sky-900">{Number(data?.tiempoEntregaPromedioHoras || 0).toFixed(1)} h</p>
+            </div>
+            <div className="rounded-2xl bg-amber-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-amber-700">Canal más fuerte</p>
+              <p className="mt-2 text-base font-extrabold text-amber-900">
+                {Number(data?.ticketDelivery || 0) >= Number(data?.ticketRecojoTienda || 0) ? "Delivery" : "Recojo en tienda"}
+              </p>
+            </div>
+          </div>
+        </AdminPanel>
       </div>
 
       {/* Recent Orders */}

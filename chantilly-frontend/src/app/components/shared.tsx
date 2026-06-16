@@ -32,6 +32,7 @@ export function TableSkeleton() {
 }
 
 export type UiOrderStatus = "Pendiente" | "En preparación" | "Listo" | "En ruta" | "Entregado" | "Cancelado" | "Rechazado";
+export type UiPaymentStatus = "Pendiente" | "Confirmado" | "Rechazado" | "Expirado" | "Reembolsado";
 
 const STATUS_COLORS: Record<UiOrderStatus, { bg: string; text: string }> = {
   Pendiente: { bg: "#fef3c7", text: "#d97706" },
@@ -41,6 +42,14 @@ const STATUS_COLORS: Record<UiOrderStatus, { bg: string; text: string }> = {
   Entregado: { bg: "#dcfce7", text: "#15803d" },
   Cancelado: { bg: "#fef2f2", text: "#dc2626" },
   Rechazado: { bg: "#f3f4f6", text: "#4b5563" },
+};
+
+const PAYMENT_STATUS_COLORS: Record<UiPaymentStatus, { bg: string; text: string }> = {
+  Pendiente: { bg: "#fef3c7", text: "#b45309" },
+  Confirmado: { bg: "#dcfce7", text: "#15803d" },
+  Rechazado: { bg: "#fee2e2", text: "#b91c1c" },
+  Expirado: { bg: "#f3f4f6", text: "#4b5563" },
+  Reembolsado: { bg: "#ede9fe", text: "#6d28d9" },
 };
 
 export function toUiStatus(status: string): UiOrderStatus {
@@ -61,6 +70,26 @@ export function StatusBadge({ status }: { status: UiOrderStatus }) {
   return (
     <span className="px-3 py-1 rounded-full inline-block whitespace-nowrap font-bold border" style={{ backgroundColor: c.bg, color: c.text, borderColor: "rgba(0,0,0,0.05)", fontFamily: "Poppins", fontSize: 12 }}>
       {status}
+    </span>
+  );
+}
+
+export function toUiPaymentStatus(status?: string): UiPaymentStatus {
+  switch ((status || "").toUpperCase()) {
+    case "CONFIRMADO": return "Confirmado";
+    case "RECHAZADO": return "Rechazado";
+    case "EXPIRADO": return "Expirado";
+    case "REEMBOLSADO": return "Reembolsado";
+    default: return "Pendiente";
+  }
+}
+
+export function PaymentStatusBadge({ status }: { status?: string }) {
+  const mapped = toUiPaymentStatus(status);
+  const c = PAYMENT_STATUS_COLORS[mapped];
+  return (
+    <span className="px-3 py-1 rounded-full inline-block whitespace-nowrap font-bold border" style={{ backgroundColor: c.bg, color: c.text, borderColor: "rgba(0,0,0,0.05)", fontFamily: "Poppins", fontSize: 12 }}>
+      {mapped}
     </span>
   );
 }
@@ -137,7 +166,7 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-6">
           <Link to="/" className="hover:text-[#F5C518] transition-colors">Inicio</Link>
           <Link to="/catalogo" className="hover:text-[#F5C518] transition-colors">Catálogo</Link>
-          <a href="/#combos" className="text-[#F5C518] font-bold hover:text-white transition-colors flex items-center gap-1">
+          <a href="/#combos" className="text-white font-bold hover:text-[#FFE082] transition-colors flex items-center gap-1">
             <Gift className="w-4 h-4" /> Combos
           </a>
           {isLoggedIn && <Link to="/mis-pedidos" className="hover:text-[#F5C518] transition-colors">Mis Pedidos</Link>}
@@ -145,7 +174,12 @@ export function Navbar() {
 
         <div className="flex items-center gap-4 relative">
           {isLoggedIn && (
-            <button onClick={abrirNotificaciones} className="relative hover:text-[#F5C518] transition-colors">
+            <button
+              onClick={abrirNotificaciones}
+              aria-label={notifOpen ? "Cerrar notificaciones" : "Abrir notificaciones"}
+              title={notifOpen ? "Cerrar notificaciones" : "Abrir notificaciones"}
+              className="relative hover:text-[#FFE082] transition-colors"
+            >
               <Bell className="w-6 h-6" />
               {noLeidas > 0 && (
                 <span className="absolute -top-2 -right-2 bg-[#F5C518] text-[#333] w-5 h-5 rounded-full flex items-center justify-center" style={{ fontSize: 11, fontWeight: 700 }}>{noLeidas}</span>
@@ -153,7 +187,13 @@ export function Navbar() {
             </button>
           )}
 
-          <button id="nav-cart-icon" onClick={() => setCartOpen(true)} className="relative hover:text-[#F5C518] transition-colors">
+          <button
+            id="nav-cart-icon"
+            onClick={() => setCartOpen(true)}
+            aria-label={`Abrir carrito${cartCount > 0 ? `, ${cartCount} productos` : ""}`}
+            title="Abrir carrito"
+            className="relative hover:text-[#FFE082] transition-colors"
+          >
             <ShoppingCart className="w-6 h-6" />
             {cartCount > 0 && (
               <span className="absolute -top-2 -right-2 bg-[#F5C518] text-[#333] w-5 h-5 rounded-full flex items-center justify-center" style={{ fontSize: 11, fontWeight: 700 }}>{cartCount}</span>
@@ -162,7 +202,7 @@ export function Navbar() {
 
           {isLoggedIn ? (
             <div className="hidden md:flex items-center gap-3">
-              <Link to="/perfil" className="hover:text-[#F5C518]"><User className="w-6 h-6" /></Link>
+              <Link to="/perfil" aria-label="Ir a mi perfil" title="Ir a mi perfil" className="hover:text-[#FFE082]"><User className="w-6 h-6" /></Link>
               <button onClick={() => { logout(); navigate("/"); }} className="hover:text-[#F5C518]" style={{ fontSize: 14 }}>Salir</button>
             </div>
           ) : (
@@ -171,7 +211,12 @@ export function Navbar() {
             </Link>
           )}
 
-          <button className="md:hidden" onClick={() => setMobileOpen(!mobileOpen)}>
+          <button
+            className="md:hidden"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
+            title={mobileOpen ? "Cerrar menú" : "Abrir menú"}
+          >
             {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
 
@@ -184,7 +229,7 @@ export function Navbar() {
                 notificaciones.map((n) => (
                   <div key={n.id} className="p-3 border-b last:border-b-0">
                     <p style={{ fontWeight: 600, fontSize: 14 }}>{n.titulo}</p>
-                    <p className="text-gray-500" style={{ fontSize: 13 }}>{n.mensaje}</p>
+                    <p className="text-gray-600" style={{ fontSize: 13 }}>{n.mensaje}</p>
                   </div>
                 ))
               )}
@@ -221,20 +266,27 @@ export function CartDrawer() {
     <>
       {/* Backdrop */}
       <div 
-        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity duration-300 ${isCartOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`} 
+        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity duration-300 ${isCartOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`} 
         onClick={() => setCartOpen(false)} 
       />
       
       {/* Sliding Drawer */}
       <div 
-        className={`fixed right-0 top-0 h-full w-full max-w-md bg-white z-50 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`} 
+        className={`fixed right-0 top-0 h-full w-full max-w-md bg-white z-50 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${isCartOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`} 
         style={{ fontFamily: "Poppins" }}
       >
         <div className="bg-[#D32F2F] text-white p-5 flex justify-between items-center shadow-md z-10">
           <h2 className="text-xl flex items-center gap-2" style={{ fontWeight: 700 }}>
             <ShoppingCart className="w-6 h-6" /> Mi Carrito ({cart.length})
           </h2>
-          <button onClick={() => setCartOpen(false)} className="hover:bg-red-700 p-1.5 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+          <button
+            onClick={() => setCartOpen(false)}
+            aria-label="Cerrar carrito"
+            title="Cerrar carrito"
+            className="hover:bg-red-700 p-1.5 rounded-full transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50/50">
@@ -260,11 +312,11 @@ export function CartDrawer() {
                 
                 <div className="flex items-center justify-between mt-2">
                   <div className="flex items-center border border-gray-200 rounded-full bg-gray-50 overflow-hidden shadow-sm">
-                    <button onClick={() => updateQty(item.id, item.quantity - 1)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 transition-colors text-gray-600 font-bold">-</button>
+                    <button onClick={() => updateQty(item.id, item.quantity - 1)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 transition-colors text-gray-600 font-bold" aria-label={`Disminuir cantidad de ${item.name}`}>-</button>
                     <span className="w-8 text-center font-bold text-sm">{item.quantity}</span>
-                    <button onClick={() => updateQty(item.id, item.quantity + 1)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 transition-colors text-gray-600 font-bold">+</button>
+                    <button onClick={() => updateQty(item.id, item.quantity + 1)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 transition-colors text-gray-600 font-bold" aria-label={`Aumentar cantidad de ${item.name}`}>+</button>
                   </div>
-                  <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center transition-colors absolute top-3 right-3 opacity-0 group-hover:opacity-100">
+                  <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center transition-colors absolute top-3 right-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100" aria-label={`Eliminar ${item.name} del carrito`}>
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -341,7 +393,7 @@ export function Footer() {
           </div>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-4 mt-8 pt-6 border-t border-gray-600 text-center text-gray-500" style={{ fontSize: 13 }}>
+      <div className="max-w-7xl mx-auto px-4 mt-8 pt-6 border-t border-gray-600 text-center text-gray-300" style={{ fontSize: 13 }}>
         © 2026 La Casa del Chantilly. Todos los derechos reservados.
       </div>
     </footer>

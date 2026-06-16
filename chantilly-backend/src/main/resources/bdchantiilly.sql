@@ -249,7 +249,7 @@ CREATE TABLE `pagos` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `id_pedido` int(11) NOT NULL,
   `metodo_pago` enum('EFECTIVO','TRANSFERENCIA','YAPE','PLIN') NOT NULL,
-  `estado_pago` enum('PENDIENTE','CONFIRMADO','RECHAZADO') DEFAULT 'PENDIENTE',
+  `estado_pago` enum('PENDIENTE','CONFIRMADO','RECHAZADO','EXPIRADO','REEMBOLSADO') DEFAULT 'PENDIENTE',
   `monto` decimal(38,2) DEFAULT NULL,
   `referencia` varchar(100) DEFAULT NULL,
   `imagen_voucher` varchar(255) DEFAULT NULL,
@@ -674,6 +674,20 @@ SET character_set_client = @saved_cs_client;
 /*!50001 SET character_set_client      = @saved_cs_client */;
 /*!50001 SET character_set_results     = @saved_cs_results */;
 /*!50001 SET collation_connection      = @saved_col_connection */;
+DROP TABLE IF EXISTS `admin_activity_logs`;
+CREATE TABLE `admin_activity_logs` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_admin` int DEFAULT NULL,
+  `modulo` varchar(50) NOT NULL,
+  `accion` varchar(50) NOT NULL,
+  `entidad_tipo` varchar(50) NOT NULL,
+  `entidad_id` int DEFAULT NULL,
+  `resumen` varchar(255) NOT NULL,
+  `creado_en` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_admin_activity_logs_admin` (`id_admin`),
+  CONSTRAINT `fk_admin_activity_logs_admin` FOREIGN KEY (`id_admin`) REFERENCES `usuarios` (`id`)
+);
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

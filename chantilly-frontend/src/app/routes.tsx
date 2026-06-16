@@ -4,32 +4,47 @@ import React from "react";
 import RootLayout from "./layouts/RootLayout";
 import ClientLayout from "./layouts/ClientLayout";
 
-import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Recovery from "./pages/Recovery";
 import ResetPassword from "./pages/ResetPassword";
-import Profile from "./pages/Profile";
-import Catalog from "./pages/Catalog";
-import ProductDetail from "./pages/ProductDetail";
-import Checkout from "./pages/Checkout";
-import Confirmation from "./pages/Confirmation";
-import MyOrders from "./pages/MyOrders";
-import OrderDetail from "./pages/OrderDetail";
-import Claim from "./pages/Claim";
-import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
-
-import AdminLayout from "./pages/admin/AdminLayout";
-import Dashboard from "./pages/admin/Dashboard";
-import AdminProducts from "./pages/admin/AdminProducts";
-import AdminOrders from "./pages/admin/AdminOrders";
-import Promotions from "./pages/admin/Promotions";
-import Reports from "./pages/admin/Reports";
-import StockAlerts from "./pages/admin/StockAlerts";
-import AdminClaims from "./pages/admin/AdminClaims";
-import AdminUsers from "./pages/admin/AdminUsers";
 import ProtectedRoute from "./components/ProtectedRoute";
+
+const Landing = React.lazy(() => import("./pages/Landing"));
+const Catalog = React.lazy(() => import("./pages/Catalog"));
+const ProductDetail = React.lazy(() => import("./pages/ProductDetail"));
+const Checkout = React.lazy(() => import("./pages/Checkout"));
+const Confirmation = React.lazy(() => import("./pages/Confirmation"));
+const MyOrders = React.lazy(() => import("./pages/MyOrders"));
+const OrderDetail = React.lazy(() => import("./pages/OrderDetail"));
+const Profile = React.lazy(() => import("./pages/Profile"));
+const Claim = React.lazy(() => import("./pages/Claim"));
+const Terms = React.lazy(() => import("./pages/Terms"));
+const AdminLayout = React.lazy(() => import("./pages/admin/AdminLayout"));
+const Dashboard = React.lazy(() => import("./pages/admin/Dashboard"));
+const AdminProducts = React.lazy(() => import("./pages/admin/AdminProducts"));
+const AdminOrders = React.lazy(() => import("./pages/admin/AdminOrders"));
+const AdminPayments = React.lazy(() => import("./pages/admin/AdminPayments"));
+const Promotions = React.lazy(() => import("./pages/admin/Promotions"));
+const Reports = React.lazy(() => import("./pages/admin/Reports"));
+const StockAlerts = React.lazy(() => import("./pages/admin/StockAlerts"));
+const AdminClaims = React.lazy(() => import("./pages/admin/AdminClaims"));
+const AdminUsers = React.lazy(() => import("./pages/admin/AdminUsers"));
+
+function withSuspense(element: React.ReactNode) {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center bg-[#F7F5F3] px-4 py-10 text-sm font-semibold text-gray-600">
+          Cargando vista...
+        </div>
+      }
+    >
+      {element}
+    </React.Suspense>
+  );
+}
 
 export const router = createBrowserRouter([
   {
@@ -39,16 +54,16 @@ export const router = createBrowserRouter([
       {
         Component: ClientLayout,
         children: [
-          { index: true, Component: Landing },
-          { path: "catalogo", Component: Catalog },
-          { path: "producto/:id", Component: ProductDetail },
-          { path: "checkout", element: <ProtectedRoute><Checkout /></ProtectedRoute> },
-          { path: "confirmacion", Component: Confirmation },
-          { path: "mis-pedidos", element: <ProtectedRoute><MyOrders /></ProtectedRoute> },
-          { path: "pedido/:id", Component: OrderDetail },
-          { path: "perfil", element: <ProtectedRoute clientOnly={true}><Profile /></ProtectedRoute> },
-          { path: "reclamo", element: <ProtectedRoute><Claim /></ProtectedRoute> },
-          { path: "terminos", Component: Terms },
+          { index: true, element: withSuspense(<Landing />) },
+          { path: "catalogo", element: withSuspense(<Catalog />) },
+          { path: "producto/:id", element: withSuspense(<ProductDetail />) },
+          { path: "checkout", element: withSuspense(<ProtectedRoute><Checkout /></ProtectedRoute>) },
+          { path: "confirmacion", element: withSuspense(<ProtectedRoute><Confirmation /></ProtectedRoute>) },
+          { path: "mis-pedidos", element: withSuspense(<ProtectedRoute><MyOrders /></ProtectedRoute>) },
+          { path: "pedido/:id", element: withSuspense(<ProtectedRoute><OrderDetail /></ProtectedRoute>) },
+          { path: "perfil", element: withSuspense(<ProtectedRoute clientOnly={true}><Profile /></ProtectedRoute>) },
+          { path: "reclamo", element: withSuspense(<ProtectedRoute><Claim /></ProtectedRoute>) },
+          { path: "terminos", element: withSuspense(<Terms />) },
         ],
       },
       { path: "login", Component: Login },
@@ -57,16 +72,17 @@ export const router = createBrowserRouter([
       { path: "reset-password/:token", Component: ResetPassword },
       {
         path: "admin",
-        element: <ProtectedRoute adminOnly={true}><AdminLayout /></ProtectedRoute>,
+        element: withSuspense(<ProtectedRoute adminOnly={true}><AdminLayout /></ProtectedRoute>),
         children: [
-          { index: true, Component: Dashboard },
-          { path: "productos", Component: AdminProducts },
-          { path: "pedidos", Component: AdminOrders },
-          { path: "promociones", Component: Promotions },
-          { path: "reportes", Component: Reports },
-          { path: "alertas", Component: StockAlerts },
-          { path: "reclamos", Component: AdminClaims },
-          { path: "usuarios", Component: AdminUsers },
+          { index: true, element: withSuspense(<Dashboard />) },
+          { path: "productos", element: withSuspense(<AdminProducts />) },
+          { path: "pedidos", element: withSuspense(<AdminOrders />) },
+          { path: "pagos", element: withSuspense(<AdminPayments />) },
+          { path: "promociones", element: withSuspense(<Promotions />) },
+          { path: "reportes", element: withSuspense(<Reports />) },
+          { path: "alertas", element: withSuspense(<StockAlerts />) },
+          { path: "reclamos", element: withSuspense(<AdminClaims />) },
+          { path: "usuarios", element: withSuspense(<AdminUsers />) },
         ],
       },
       { path: "*", Component: NotFound },

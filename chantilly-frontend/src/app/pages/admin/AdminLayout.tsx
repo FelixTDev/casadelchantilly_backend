@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
-import { LayoutDashboard, Package, ShoppingBag, Tag, BarChart3, AlertTriangle, Menu, LogOut, Home, MessageSquare, Users } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingBag, Tag, BarChart3, AlertTriangle, Menu, LogOut, Home, MessageSquare, Users, Wallet } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "../../components/ui/breadcrumb";
 
 const NAV = [
   { path: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { path: "/admin/productos", label: "Productos", icon: Package },
   { path: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
+  { path: "/admin/pagos", label: "Pagos", icon: Wallet },
   { path: "/admin/promociones", label: "Promociones", icon: Tag },
   { path: "/admin/reportes", label: "Reportes", icon: BarChart3 },
   { path: "/admin/alertas", label: "Alertas Stock", icon: AlertTriangle },
@@ -16,9 +18,9 @@ const NAV = [
 
 const NAV_GROUPS = [
   { label: "Principal", items: NAV.slice(0, 1) },
-  { label: "Gestión", items: NAV.slice(1, 4) },
-  { label: "Análisis", items: NAV.slice(4, 6) },
-  { label: "Soporte", items: NAV.slice(6) },
+  { label: "Gestión", items: NAV.slice(1, 5) },
+  { label: "Análisis", items: NAV.slice(5, 7) },
+  { label: "Soporte", items: NAV.slice(7) },
 ];
 
 export default function AdminLayout() {
@@ -28,9 +30,13 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const currentPage = NAV.find(n => n.path === location.pathname);
+  const breadcrumbItems = [
+    { label: "Panel", path: "/admin" },
+    ...(location.pathname !== "/admin" && currentPage ? [{ label: currentPage.label }] : []),
+  ];
 
   const sidebar = (
-    <div className="flex flex-col h-full bg-[#0b0f19]" style={{ backgroundImage: "linear-gradient(180deg, #111827 0%, #0b0f19 100%)" }}>
+    <div className="flex flex-col h-full bg-[#121722]" style={{ backgroundImage: "linear-gradient(180deg, #18202d 0%, #121722 100%)" }}>
       {/* Logo */}
       <div className="px-6 py-6 border-b border-white/5">
         <div className="flex items-center gap-3">
@@ -108,9 +114,9 @@ export default function AdminLayout() {
   );
 
   return (
-    <div className="flex h-screen" style={{ background: "#F4F6F9", fontFamily: "Poppins" }}>
+    <div className="flex h-screen" style={{ background: "#F6F7F9", fontFamily: "Poppins" }}>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:block w-64 shrink-0" style={{ boxShadow: "4px 0 24px rgba(0,0,0,0.15)" }}>{sidebar}</aside>
+      <aside className="hidden lg:block w-64 shrink-0" style={{ boxShadow: "4px 0 24px rgba(15,23,42,0.18)" }}>{sidebar}</aside>
 
       {/* Mobile sidebar */}
       {sidebarOpen && (
@@ -122,7 +128,7 @@ export default function AdminLayout() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white px-6 h-16 flex items-center justify-between shrink-0" style={{ borderBottom: "1px solid #f0f0f0", boxShadow: "0 1px 8px rgba(0,0,0,0.04)" }}>
+        <header className="bg-white/95 px-6 h-20 flex items-center justify-between shrink-0" style={{ borderBottom: "1px solid #eef0f3", boxShadow: "0 1px 10px rgba(15,23,42,0.04)" }}>
           <div className="flex items-center gap-4">
             <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors" onClick={() => setSidebarOpen(true)}>
               <Menu className="w-5 h-5 text-gray-600" />
@@ -131,15 +137,32 @@ export default function AdminLayout() {
               <h1 className="text-gray-900 font-extrabold text-lg leading-tight">
                 {currentPage?.label || "Admin"}
               </h1>
-              <p className="text-gray-400 text-xs font-medium hidden sm:block">
-                La Casa del Chantilly &mdash; Panel de control
-              </p>
+              <div className="hidden sm:block mt-1">
+                <Breadcrumb>
+                  <BreadcrumbList className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                    {breadcrumbItems.map((item, index) => (
+                      <React.Fragment key={`${item.label}-${index}`}>
+                        <BreadcrumbItem>
+                          {"path" in item ? (
+                            <BreadcrumbLink asChild>
+                              <Link to={item.path} className="text-gray-500 transition hover:text-[#D32F2F]">{item.label}</Link>
+                            </BreadcrumbLink>
+                          ) : (
+                            <BreadcrumbPage className="font-bold text-gray-500">{item.label}</BreadcrumbPage>
+                          )}
+                        </BreadcrumbItem>
+                        {index < breadcrumbItems.length - 1 && <BreadcrumbSeparator className="text-gray-300" />}
+                      </React.Fragment>
+                    ))}
+                  </BreadcrumbList>
+                </Breadcrumb>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
               <p className="text-gray-900 font-bold text-sm">Administrador</p>
-              <p className="text-gray-400 text-xs">admin@chantilly.com</p>
+              <p className="text-gray-600 text-xs">admin@chantilly.com</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-[#D32F2F] flex items-center justify-center" style={{ boxShadow: "0 4px 12px rgba(211,47,47,0.25)" }}>
               <span className="text-white font-bold text-sm">A</span>

@@ -1,10 +1,12 @@
 package com.integrador.chantilly.pedido.service;
 
+import com.integrador.chantilly.admin.service.AdminActivityLogService;
 import com.integrador.chantilly.carrito.entity.Carrito;
 import com.integrador.chantilly.carrito.entity.CarritoItem;
 import com.integrador.chantilly.carrito.repository.CarritoItemRepository;
 import com.integrador.chantilly.carrito.repository.CarritoRepository;
 import com.integrador.chantilly.notificacion.service.NotificacionService;
+import com.integrador.chantilly.pago.repository.PagoRepository;
 import com.integrador.chantilly.pedido.dto.CrearPedidoRequest;
 import com.integrador.chantilly.pedido.dto.HistorialEstadoDTO;
 import com.integrador.chantilly.pedido.dto.PedidoDTO;
@@ -27,6 +29,7 @@ import com.integrador.chantilly.usuario.repository.DireccionRepository;
 import com.integrador.chantilly.usuario.repository.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,6 +67,8 @@ public class PedidoService {
     private final UsuarioRepository usuarioRepository;
     private final NotificacionService notificacionService;
     private final PromocionRepository promocionRepository;
+    private final PagoRepository pagoRepository;
+    private final AdminActivityLogService adminActivityLogService;
 
     @Value("${app.delivery.costo:5.00}")
     private BigDecimal costoDelivery;
@@ -78,7 +83,9 @@ public class PedidoService {
                         DireccionRepository direccionRepository,
                         UsuarioRepository usuarioRepository,
                         NotificacionService notificacionService,
-                        PromocionRepository promocionRepository) {
+                        PromocionRepository promocionRepository,
+                        PagoRepository pagoRepository,
+                        AdminActivityLogService adminActivityLogService) {
         this.pedidoRepository = pedidoRepository;
         this.pedidoItemRepository = pedidoItemRepository;
         this.historialEstadoRepository = historialEstadoRepository;
@@ -90,6 +97,8 @@ public class PedidoService {
         this.usuarioRepository = usuarioRepository;
         this.notificacionService = notificacionService;
         this.promocionRepository = promocionRepository;
+        this.pagoRepository = pagoRepository;
+        this.adminActivityLogService = adminActivityLogService;
     }
 
     @Transactional
@@ -188,18 +197,23 @@ public class PedidoService {
     }
 
     public PedidoDTO obtenerPorId(Integer id, Integer usuarioId) {
-        Pedido pedido = pedidoRepository.findById(id)
+        Pedido pedido = obtenerPedidoAutorizado(id, usuarioId);
+        return toDtoCompleto(pedido);
+    }
+
+    public Pedido obtenerPedidoAutorizado(Integer pedidoId, Integer usuarioId) {
+        Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
 
         if (!pedido.getUsuario().getId().equals(usuarioId)) {
             Usuario usuario = usuarioRepository.findById(usuarioId)
                     .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
             if (!"ADMIN".equals(usuario.getRol().getNombre())) {
-                throw new RuntimeException("No tiene permisos para ver este pedido");
+                throw new AccessDeniedException("No tiene permisos para acceder a este pedido");
             }
         }
 
-        return toDtoCompleto(pedido);
+        return pedido;
     }
 
     public List<PedidoDTO> listarPorUsuario(Integer usuarioId) {
@@ -225,6 +239,14 @@ public class PedidoService {
         pedidoRepository.save(pedido);
 
         registrarHistorial(pedido, estadoNormalizado, "Actualizado por administrador", admin);
+        adminActivityLogService.registrar(
+                admin,
+                "PEDIDOS",
+                "CAMBIAR_ESTADO",
+                "PEDIDO",
+                pedido.getId(),
+                "Cambió " + pedido.getCodigoPedido() + " a " + estadoNormalizado
+        );
         notificacionService.crear(pedido.getUsuario().getId(), "Estado de pedido actualizado", "Tu pedido " + pedido.getCodigoPedido() + " ahora esta en estado " + estadoNormalizado, "PEDIDO");
 
         return toDtoCompleto(pedido);
@@ -350,6 +372,7 @@ public class PedidoService {
         dto.setCodigoPedido(pedido.getCodigoPedido());
         dto.setEstado(pedido.getEstado());
         dto.setModalidadEntrega(pedido.getModalidadEntrega());
+        dto.setIdDireccion(pedido.getIdDireccion());
         dto.setFechaEntrega(pedido.getFechaEntrega());
         dto.setHoraEntrega(pedido.getHoraEntrega());
         dto.setSubtotal(pedido.getSubtotal());
@@ -358,6 +381,32 @@ public class PedidoService {
         dto.setTotal(pedido.getTotal());
         dto.setNotasCliente(pedido.getNotasCliente());
         dto.setCreadoEn(pedido.getCreadoEn());
+        dto.setClienteNombre(pedido.getUsuario().getNombre() + " " + pedido.getUsuario().getApellido());
+        dto.setClienteEmail(pedido.getUsuario().getEmail());
+        dto.setClienteTelefono(pedido.getUsuario().getTelefono());
+
+        if (pedido.getIdDireccion() != null) {
+            direccionRepository.findById(pedido.getIdDireccion()).ifPresent(direccion -> {
+                dto.setDireccionEtiqueta(direccion.getEtiqueta());
+                dto.setDireccionDetalle(direccion.getDireccion());
+                dto.setDireccionTelefono(direccion.getTelefono());
+            });
+        }
+
+        pagoRepository.findByPedidoId(pedido.getId()).ifPresent(pago -> {
+            com.integrador.chantilly.pago.dto.PagoDTO pagoDto = new com.integrador.chantilly.pago.dto.PagoDTO();
+            pagoDto.setId(pago.getId());
+            pagoDto.setPedidoId(pedido.getId());
+            pagoDto.setCodigoPedido(pedido.getCodigoPedido());
+            pagoDto.setClienteNombre(dto.getClienteNombre());
+            pagoDto.setModalidadEntrega(pedido.getModalidadEntrega());
+            pagoDto.setMetodoPago(pago.getMetodoPago());
+            pagoDto.setEstadoPago(pago.getEstadoPago());
+            pagoDto.setMonto(pago.getMonto());
+            pagoDto.setReferencia(pago.getReferencia());
+            pagoDto.setFechaPago(pago.getFechaPago());
+            dto.setPago(pagoDto);
+        });
 
         dto.setItems(pedidoItemRepository.findByPedidoId(pedido.getId()).stream().map(item -> {
             PedidoItemDTO pi = new PedidoItemDTO();
@@ -377,6 +426,9 @@ public class PedidoService {
             hdto.setEstado(h.getEstado());
             hdto.setComentario(h.getComentario());
             hdto.setCambiadoPor(h.getCambiadoPor() != null ? h.getCambiadoPor().getId() : null);
+            hdto.setCambiadoPorNombre(h.getCambiadoPor() != null
+                    ? h.getCambiadoPor().getNombre() + " " + h.getCambiadoPor().getApellido()
+                    : null);
             hdto.setCreadoEn(h.getCreadoEn());
             return hdto;
         }).toList());

@@ -31,7 +31,7 @@ public class Promocion {
     @Column(length = 255)
     private String descripcion;
 
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, columnDefinition = "ENUM('PORCENTAJE','MONTO_FIJO','2X1')")
     private String tipo;
 
     @Column(nullable = false, precision = 10, scale = 2)

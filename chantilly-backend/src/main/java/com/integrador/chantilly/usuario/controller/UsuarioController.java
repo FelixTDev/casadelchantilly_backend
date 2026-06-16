@@ -72,19 +72,21 @@ public class UsuarioController {
 
     @PutMapping("/admin/{id}")
     public ResponseEntity<Void> actualizarUsuario(@PathVariable Integer id,
-                                                  @Valid @RequestBody UsuarioAdminUpdateDTO dto) {
-        adminService.actualizarUsuario(id, dto);
+                                                  @Valid @RequestBody UsuarioAdminUpdateDTO dto,
+                                                  Authentication auth) {
+        adminService.actualizarUsuario(id, dto, obtenerUsuarioId(auth));
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/admin/{id}/estado")
     public ResponseEntity<Void> cambiarEstadoUsuario(@PathVariable Integer id,
-                                                     @RequestBody Map<String, Boolean> body) {
+                                                     @RequestBody Map<String, Boolean> body,
+                                                     Authentication auth) {
         Boolean activo = body.get("activo");
         if (activo == null) {
             throw new RuntimeException("El campo 'activo' es obligatorio");
         }
-        adminService.cambiarEstado(id, activo);
+        adminService.cambiarEstado(id, activo, obtenerUsuarioId(auth));
         return ResponseEntity.ok().build();
     }
 
@@ -151,5 +153,11 @@ public class UsuarioController {
     @DeleteMapping("/me/direcciones/{id}")
     public ResponseEntity<Void> eliminarDireccionCompat(Authentication auth, @PathVariable Integer id) {
         return eliminarDireccion(auth, id);
+    }
+
+    private Integer obtenerUsuarioId(Authentication auth) {
+        return usuarioRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"))
+                .getId();
     }
 }

@@ -30,7 +30,7 @@ public class Notificacion {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String mensaje;
 
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, columnDefinition = "ENUM('PEDIDO','STOCK','PROMOCION','SISTEMA','PAGO','RECLAMO')")
     private String tipo;
 
     @Column(nullable = false)

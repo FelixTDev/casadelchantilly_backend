@@ -29,7 +29,7 @@ public class Reclamo {
     @JoinColumn(name = "id_pedido")
     private Pedido pedido;
 
-    @Column(length = 50)
+    @Column(nullable = false, columnDefinition = "ENUM('PRODUCTO_INCORRECTO','PRODUCTO_DANADO','RETRASO','OTRO')")
     private String tipo;
 
     @Column(nullable = false, columnDefinition = "TEXT")
@@ -41,7 +41,7 @@ public class Reclamo {
     @Column(columnDefinition = "TEXT")
     private String resolucion;
 
-    @Column(name = "tipo_solucion", length = 50)
+    @Column(name = "tipo_solucion", columnDefinition = "ENUM('REEMBOLSO','REPOSICION','SIN_ACCION')")
     private String tipoSolucion;
 
     @Column(name = "creado_en", insertable = false, updatable = false)

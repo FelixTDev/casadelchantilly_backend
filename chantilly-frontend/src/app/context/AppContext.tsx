@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { CartItem, Product } from "../data/mock-data";
-import { authService, RegisterData } from "../../services/authService";
+import { authService, CurrentSessionResponse, RegisterData } from "../../services/authService";
 import { carritoService, CarritoApi } from "../../services/carritoService";
 import { useCartStore } from "../../services/useCartStore";
+import { getUserErrorMessage } from "../../lib/apiError";
 
 interface User {
   name: string;
@@ -20,6 +21,7 @@ interface AppState {
   isAdmin: boolean;
   user: User;
   loading: boolean;
+  authReady: boolean;
   addToCart: (p: Product, qty?: number, customization?: string) => Promise<void>;
   removeFromCart: (id: number) => Promise<void>;
   updateQty: (id: number, qty: number) => Promise<void>;
@@ -56,7 +58,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [user, setUser] = useState<User>({ name: "Maria", lastName: "Garcia", email: "maria@email.com", phone: "987654321" });
+  const cartBounceTimeoutRef = useRef<number | null>(null);
 
   // Alias para que el resto del código siga funcionando igual
   const cart = cartStore.cart;
@@ -65,8 +69,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLoggedIn(false);
     setIsAdmin(false);
     cartStore._clearLocal();
-    localStorage.removeItem("chantilly_token");
-    localStorage.removeItem("chantilly_user");
+    sessionStorage.removeItem("chantilly_user");
   };
 
   const syncCartFromApi = async () => {
@@ -81,24 +84,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const init = async () => {
-      const token = localStorage.getItem("chantilly_token");
-      const userStr = localStorage.getItem("chantilly_user");
-      if (!token || !userStr) return;
-
-      const userData = JSON.parse(userStr);
-      setLoggedIn(true);
-      setIsAdmin(userData.rol === "ADMIN");
-      setUser({ name: userData.nombre, lastName: "", email: userData.email, phone: "" });
-
-      if (userData.rol !== "ADMIN") {
-        const ok = await syncCartFromApi();
-        if (!ok) {
-          doLocalLogout();
+      const cachedUser = sessionStorage.getItem("chantilly_user");
+      if (cachedUser) {
+        try {
+          const userData = JSON.parse(cachedUser) as CurrentSessionResponse;
+          setUser({ name: userData.nombre, lastName: "", email: userData.email, phone: "" });
+        } catch {
+          sessionStorage.removeItem("chantilly_user");
         }
       }
+
+      try {
+        const { data } = await authService.getSession();
+        setLoggedIn(true);
+        setIsAdmin(data.rol === "ADMIN");
+        setUser({ name: data.nombre, lastName: "", email: data.email, phone: "" });
+        sessionStorage.setItem("chantilly_user", JSON.stringify(data));
+        if (data.rol !== "ADMIN") {
+          const ok = await syncCartFromApi();
+          if (!ok) {
+            doLocalLogout();
+          }
+        }
+      } catch {
+        doLocalLogout();
+        setAuthReady(true);
+        return;
+      }
+      setAuthReady(true);
     };
 
-    init();
+    init().finally(() => setAuthReady(true));
+    return () => {
+      if (cartBounceTimeoutRef.current) {
+        window.clearTimeout(cartBounceTimeoutRef.current);
+      }
+    };
   }, []);
 
   const addToCart = async (p: Product, qty = 1, customization?: string) => {
@@ -109,7 +130,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const cartIcon = document.getElementById("nav-cart-icon");
     if (cartIcon) {
       cartIcon.classList.add("animate-bounce");
-      setTimeout(() => cartIcon.classList.remove("animate-bounce"), 1000);
+      if (cartBounceTimeoutRef.current) {
+        window.clearTimeout(cartBounceTimeoutRef.current);
+      }
+      cartBounceTimeoutRef.current = window.setTimeout(() => cartIcon.classList.remove("animate-bounce"), 1000);
     }
   };
 
@@ -130,19 +154,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const response = await authService.login({ email, password });
       const data = response.data;
-      localStorage.setItem("chantilly_token", data.token);
-      localStorage.setItem("chantilly_user", JSON.stringify(data));
       setLoggedIn(true);
       setIsAdmin(data.rol === "ADMIN");
       setUser({ name: data.nombre, lastName: "", email: data.email, phone: "" });
+      sessionStorage.setItem("chantilly_user", JSON.stringify(data));
       if (data.rol !== "ADMIN") {
         await syncCartFromApi();
       }
       return { success: true };
     } catch (err) {
       let errorMsg = "Credenciales incorrectas. Intenta de nuevo.";
-      if (axios.isAxiosError(err) && err.response?.data?.mensaje) {
-        errorMsg = err.response.data.mensaje;
+      if (axios.isAxiosError(err)) {
+        errorMsg = getUserErrorMessage(err, errorMsg);
       }
       return { success: false, error: errorMsg };
     } finally {
@@ -156,10 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    const token = localStorage.getItem("chantilly_token");
-    if (token) {
-      authService.logout().catch(() => undefined);
-    }
+    authService.logout().catch(() => undefined);
     doLocalLogout();
   };
 
@@ -184,7 +204,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ cart, isCartOpen, isLoggedIn, isAdmin, user, loading, addToCart, removeFromCart, updateQty, clearCart, setCartOpen, login, loginAdmin, logout, setUser, register, recuperarPassword }}>
+    <AppContext.Provider value={{ cart, isCartOpen, isLoggedIn, isAdmin, user, loading, authReady, addToCart, removeFromCart, updateQty, clearCart, setCartOpen, login, loginAdmin, logout, setUser, register, recuperarPassword }}>
       {children}
     </AppContext.Provider>
   );

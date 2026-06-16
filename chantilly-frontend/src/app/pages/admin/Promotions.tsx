@@ -1,22 +1,38 @@
-import React, { useEffect, useState } from "react";
-import { Tag, Plus, Trash2, Copy, Check, X, Ticket, Calendar, Clock, Megaphone } from "lucide-react";
-import { TableSkeleton } from "../../components/shared";
+import React, { useEffect, useMemo, useState } from "react";
+import { Calendar, Check, Clock, Copy, Edit2, Megaphone, Plus, Tag, Ticket, Trash2, X } from "lucide-react";
 import { productoService, PromocionApi } from "../../../services/productoService";
+import { AdminBooleanBadge, AdminEmptyState, AdminErrorState, AdminLoadingState, AdminPagination, AdminPanel } from "../../components/adminUi";
+import { getLocalDateInputValue, normalizeText, validateDateRange, validatePositiveNumber, validateRequiredText } from "../../lib/validation";
 import { toast } from "sonner";
+import { showRequestError } from "../../../lib/notifyError";
 
-const EMPTY_FORM = {
+type PromotionForm = {
+  nombre: string;
+  descripcion: string;
+  tipo: string;
+  valor: string;
+  fechaInicio: string;
+  fechaFin: string;
+  codigoCupon: string;
+};
+
+type PromotionErrors = Partial<Record<keyof PromotionForm, string>> & { range?: string };
+
+const PAGE_SIZE = 6;
+
+const EMPTY_FORM: PromotionForm = {
   nombre: "",
   descripcion: "",
   tipo: "PORCENTAJE",
   valor: "",
-  fechaInicio: "",
-  fechaFin: "",
+  fechaInicio: getLocalDateInputValue(),
+  fechaFin: getLocalDateInputValue(),
   codigoCupon: "",
 };
 
 function CouponCode({ code }: { code?: string }) {
   const [copied, setCopied] = useState(false);
-  if (!code) return <span className="text-xs text-gray-400 italic">Aplica automáticamente (Sin cupón)</span>;
+  if (!code) return <span className="text-xs italic text-gray-400">Aplica automáticamente (sin cupón)</span>;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code).then(() => {
@@ -27,26 +43,27 @@ function CouponCode({ code }: { code?: string }) {
   };
 
   return (
-    <div className="flex items-center justify-between gap-3 mt-4 p-3 bg-amber-50/50 rounded-2xl border border-amber-200/60 transition-colors hover:bg-amber-50">
+    <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-200/60 bg-amber-50/50 p-3 transition-colors hover:bg-amber-50">
       <div className="flex items-center gap-2 overflow-hidden">
-        <Tag className="w-4 h-4 text-amber-500 shrink-0" />
-        <span className="text-amber-800 font-black text-sm tracking-widest uppercase truncate">
-          {code}
-        </span>
+        <Tag className="h-4 w-4 shrink-0 text-amber-500" />
+        <span className="truncate text-sm font-black uppercase tracking-widest text-amber-800">{code}</span>
       </div>
       <button
         onClick={handleCopy}
-        className={`flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-300 shrink-0 ${
-          copied
-            ? "bg-green-500 text-white shadow-md shadow-green-500/20"
-            : "bg-white text-gray-400 hover:text-amber-600 hover:bg-white shadow-sm border border-amber-200/60"
+        className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all ${
+          copied ? "bg-green-500 text-white shadow-md shadow-green-500/20" : "border border-amber-200/60 bg-white text-gray-400 shadow-sm hover:bg-white hover:text-amber-600"
         }`}
         title="Copiar cupón"
       >
-        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
       </button>
     </div>
   );
+}
+
+function FieldError({ error }: { error?: string }) {
+  if (!error) return null;
+  return <p className="mt-2 text-xs font-semibold text-red-600">{error}</p>;
 }
 
 export default function Promotions() {
@@ -54,326 +71,412 @@ export default function Promotions() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [formError, setFormError] = useState("");
+  const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [editingPromo, setEditingPromo] = useState<PromocionApi | null>(null);
+  const [form, setForm] = useState<PromotionForm>(EMPTY_FORM);
+  const [formErrors, setFormErrors] = useState<PromotionErrors>({});
+  const [promoToDeactivate, setPromoToDeactivate] = useState<PromocionApi | null>(null);
 
   const loadData = async () => {
+    setLoading(true);
+    setError("");
     try {
-      const promoRes = await productoService.getPromociones();
-      // Ordenar más recientes primero
+      const promoRes = await productoService.getPromocionesAdmin();
       setPromos(promoRes.data.sort((a, b) => (b.id || 0) - (a.id || 0)));
-    } catch (error) {
-      console.error("Error cargando promociones", error);
+    } catch (loadError) {
+      console.error("Error cargando promociones", loadError);
+      setError("No se pudo cargar el módulo de promociones.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const handleAdd = async () => {
-    setFormError("");
-    if (!form.nombre || !form.valor || !form.fechaInicio || !form.fechaFin) {
-      setFormError("Completa los campos obligatorios: nombre, descuento, fechas.");
+  const pagedPromos = useMemo(() => promos.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [promos, page]);
+  const totalPages = Math.max(1, Math.ceil(promos.length / PAGE_SIZE));
+  const activePromos = promos.filter((p) => p.activo).length;
+
+  useEffect(() => {
+    setPage(1);
+  }, [promos.length]);
+
+  const openCreate = () => {
+    setEditingPromo(null);
+    setForm(EMPTY_FORM);
+    setFormErrors({});
+    setShowForm(true);
+  };
+
+  const openEdit = (promo: PromocionApi) => {
+    setEditingPromo(promo);
+    setForm({
+      nombre: promo.nombre,
+      descripcion: promo.descripcion || "",
+      tipo: promo.tipo,
+      valor: String(promo.valor),
+      fechaInicio: promo.fechaInicio,
+      fechaFin: promo.fechaFin,
+      codigoCupon: promo.codigoCupon || "",
+    });
+    setFormErrors({});
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setEditingPromo(null);
+    setForm(EMPTY_FORM);
+    setFormErrors({});
+    setShowForm(false);
+  };
+
+  const validateForm = () => {
+    const nextErrors: PromotionErrors = {
+      nombre: validateRequiredText(form.nombre, "El nombre", 4, 80),
+      descripcion: form.descripcion ? validateRequiredText(form.descripcion, "La descripción", 8, 160) : "",
+      valor: validatePositiveNumber(form.valor, "El descuento"),
+      fechaInicio: form.fechaInicio ? "" : "La fecha inicial es obligatoria",
+      fechaFin: form.fechaFin ? "" : "La fecha final es obligatoria",
+      codigoCupon: form.codigoCupon && form.codigoCupon.trim().length < 4 ? "El cupón debe tener al menos 4 caracteres" : "",
+      range: validateDateRange(form.fechaInicio, form.fechaFin),
+    };
+
+    if (!nextErrors.valor && form.tipo === "PORCENTAJE" && Number(form.valor) > 100) {
+      nextErrors.valor = "El porcentaje no puede superar 100";
+    }
+
+    setFormErrors(nextErrors);
+    return !Object.values(nextErrors).some(Boolean);
+  };
+
+  const handleSave = async () => {
+    if (!validateForm()) {
+      toast.error("Revisa los campos obligatorios de la promoción.");
       return;
     }
+
+    const payload: PromocionApi = {
+      nombre: normalizeText(form.nombre),
+      descripcion: normalizeText(form.descripcion),
+      tipo: form.tipo,
+      valor: Number(form.valor),
+      fechaInicio: form.fechaInicio,
+      fechaFin: form.fechaFin,
+      activo: editingPromo?.activo ?? true,
+      codigoCupon: form.codigoCupon.trim().toUpperCase() || undefined,
+    };
+
     try {
       setSaving(true);
-      await productoService.crearPromocion({
-        nombre: form.nombre,
-        descripcion: form.descripcion,
-        tipo: form.tipo,
-        valor: Number(form.valor),
-        fechaInicio: form.fechaInicio,
-        fechaFin: form.fechaFin,
-        codigoCupon: form.codigoCupon.trim().toUpperCase() || undefined,
-      });
-      setForm(EMPTY_FORM);
-      setShowForm(false);
+      if (editingPromo?.id) {
+        await productoService.actualizarPromocion(editingPromo.id, payload);
+        toast.success("Promoción actualizada");
+      } else {
+        await productoService.crearPromocion(payload);
+        toast.success("Promoción creada");
+      }
+      closeForm();
       await loadData();
-    } catch (error) {
-      const msg = (error as any)?.response?.data?.mensaje || "No se pudo crear la promoción";
-      toast.error(msg);
+    } catch (saveError) {
+      showRequestError(saveError, "No se pudo guardar la promoción");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("¿Desactivar esta promoción?")) return;
     try {
       await productoService.desactivarPromocion(id);
-      await loadData();
       toast.success("Promoción desactivada");
+      await loadData();
     } catch {
       toast.error("No se pudo desactivar la promoción");
     }
   };
 
-  if (loading) return (
-    <div className="py-10">
-      <TableSkeleton />
-    </div>
-  );
+  if (loading) {
+    return <AdminLoadingState message="Cargando promociones..." />;
+  }
 
-  const activePromos = promos.filter(p => p.activo).length;
+  if (error) {
+    return <AdminErrorState description={error} onRetry={loadData} />;
+  }
 
   return (
     <div style={{ fontFamily: "Poppins" }}>
-      {/* Header Premium */}
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      {promoToDeactivate && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)" }}>
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
+              <Trash2 className="h-6 w-6 text-[#D32F2F]" />
+            </div>
+            <h3 className="text-center text-xl font-extrabold text-gray-900">¿Desactivar promoción?</h3>
+            <p className="mt-3 text-center text-sm text-gray-500">
+              La promoción <strong>{promoToDeactivate.nombre}</strong> dejará de estar disponible para nuevos pedidos.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button onClick={() => setPromoToDeactivate(null)} className="flex-1 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (promoToDeactivate.id) {
+                    await handleDelete(promoToDeactivate.id);
+                  }
+                  setPromoToDeactivate(null);
+                }}
+                className="flex-1 rounded-2xl bg-[#D32F2F] px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700"
+              >
+                Sí, desactivar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-gray-900 font-extrabold text-3xl tracking-tight mb-1">Promociones</h2>
-          <p className="text-gray-500 text-sm font-medium flex items-center gap-1.5">
-            <Ticket className="w-4 h-4" />
-            {activePromos} {activePromos === 1 ? "promoción activa" : "promociones activas"} de {promos.length}
+          <h2 className="text-3xl font-extrabold tracking-tight text-gray-900">Promociones</h2>
+          <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-gray-500">
+            <Ticket className="h-4 w-4" />
+            {activePromos} activas de {promos.length}
           </p>
         </div>
         <button
-          onClick={() => { setShowForm(!showForm); setFormError(""); }}
-          className="flex items-center justify-center gap-2 bg-[#D32F2F] hover:bg-red-700 text-white font-bold py-3.5 px-6 rounded-2xl transition-all shadow-md shadow-red-900/20 hover:shadow-lg hover:-translate-y-0.5"
-          style={{ fontSize: 14 }}>
-          <Plus className="w-4 h-4" />
+          onClick={openCreate}
+          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#D32F2F] px-6 py-3.5 text-sm font-bold text-white shadow-md shadow-red-900/20 transition hover:-translate-y-0.5 hover:bg-red-700"
+        >
+          <Plus className="h-4 w-4" />
           Nueva Promoción
         </button>
       </div>
 
-      {/* Formulario Slide-over */}
       {showForm && (
         <>
-          <div className="fixed inset-0 z-40 transition-opacity" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} onClick={() => { setShowForm(false); setForm(EMPTY_FORM); }} />
-          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-white shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col" style={{ boxShadow: "-10px 0 40px rgba(0,0,0,0.1)" }}>
-            
-            <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-gray-50/50">
+          <div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} onClick={closeForm} />
+          <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col bg-white shadow-2xl" style={{ boxShadow: "-10px 0 40px rgba(0,0,0,0.1)" }}>
+            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-8 py-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center">
-                  <Megaphone className="w-5 h-5 text-[#D32F2F]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-100 bg-white shadow-sm">
+                  <Megaphone className="h-5 w-5 text-[#D32F2F]" />
                 </div>
-                <h3 className="text-gray-900 font-extrabold text-xl">Crear Promoción</h3>
+                <div>
+                  <h3 className="text-xl font-extrabold text-gray-900">{editingPromo ? "Editar Promoción" : "Crear Promoción"}</h3>
+                  <p className="text-xs font-semibold text-gray-500">Configura el incentivo y su vigencia.</p>
+                </div>
               </div>
-              <button onClick={() => { setShowForm(false); setForm(EMPTY_FORM); }} className="w-8 h-8 rounded-full bg-white border border-gray-200 hover:bg-gray-100 flex items-center justify-center transition-colors text-gray-400 hover:text-gray-600 shadow-sm">
-                <X className="w-4 h-4" />
+              <button onClick={closeForm} className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-400 shadow-sm transition hover:bg-gray-100 hover:text-gray-600">
+                <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-8">
-              {formError && (
-                <div className="bg-red-50/80 border border-red-100 text-red-600 text-sm font-semibold p-4 rounded-2xl mb-6 flex items-start gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0"></div>
-                  {formError}
-                </div>
-              )}
+              {formErrors.range && <div className="mb-6 rounded-2xl border border-red-100 bg-red-50/80 p-4 text-sm font-semibold text-red-600">{formErrors.range}</div>}
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-gray-700 mb-2 font-bold text-sm">Nombre de campaña *</label>
+                  <label className="mb-2 block text-sm font-bold text-gray-700">Nombre de campaña *</label>
                   <input
                     value={form.nombre}
-                    onChange={e => setForm({ ...form, nombre: e.target.value })}
+                    onChange={(e) => setForm({ ...form, nombre: e.target.value })}
                     placeholder="Ej: Promo Día de la Madre"
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-[#D32F2F] transition-all shadow-sm hover:border-gray-300"
-                    style={{ fontSize: 14 }}
+                    className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-800 shadow-sm transition focus:outline-none focus:ring-4 ${
+                      formErrors.nombre ? "border-red-300 focus:border-red-500 focus:ring-red-500/10" : "border-gray-200 hover:border-gray-300 focus:border-[#D32F2F] focus:ring-red-500/10"
+                    }`}
                   />
+                  <FieldError error={formErrors.nombre} />
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 mb-2 font-bold text-sm">Descripción corta</label>
+                  <label className="mb-2 block text-sm font-bold text-gray-700">Descripción corta</label>
                   <input
                     value={form.descripcion}
-                    onChange={e => setForm({ ...form, descripcion: e.target.value })}
+                    onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
                     placeholder="Engancha a tus clientes..."
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-[#D32F2F] transition-all shadow-sm hover:border-gray-300"
-                    style={{ fontSize: 14 }}
+                    className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-800 shadow-sm transition focus:outline-none focus:ring-4 ${
+                      formErrors.descripcion ? "border-red-300 focus:border-red-500 focus:ring-red-500/10" : "border-gray-200 hover:border-gray-300 focus:border-[#D32F2F] focus:ring-red-500/10"
+                    }`}
                   />
+                  <FieldError error={formErrors.descripcion} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-gray-700 mb-2 font-bold text-sm">Tipo *</label>
+                    <label className="mb-2 block text-sm font-bold text-gray-700">Tipo *</label>
                     <select
                       value={form.tipo}
-                      onChange={e => setForm({ ...form, tipo: e.target.value })}
-                      className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white text-gray-800 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-[#D32F2F] transition-all shadow-sm hover:border-gray-300 appearance-none"
-                      style={{ fontSize: 14 }}
+                      onChange={(e) => setForm({ ...form, tipo: e.target.value })}
+                      className="w-full appearance-none rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 shadow-sm transition hover:border-gray-300 focus:border-[#D32F2F] focus:outline-none focus:ring-4 focus:ring-red-500/10"
                     >
                       <option value="PORCENTAJE">Porcentaje (%)</option>
                       <option value="MONTO_FIJO">Monto fijo (S/)</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-gray-700 mb-2 font-bold text-sm">Descuento *</label>
+                    <label className="mb-2 block text-sm font-bold text-gray-700">Descuento *</label>
                     <div className="relative">
                       <input
-                        type="number" min="0"
+                        type="number"
+                        min="0"
                         value={form.valor}
-                        onChange={e => setForm({ ...form, valor: e.target.value })}
+                        onChange={(e) => setForm({ ...form, valor: e.target.value })}
                         placeholder={form.tipo === "PORCENTAJE" ? "20" : "10.00"}
-                        className="w-full border border-gray-200 rounded-xl pl-4 pr-10 py-3 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-[#D32F2F] transition-all shadow-sm hover:border-gray-300"
-                        style={{ fontSize: 14 }}
+                        className={`w-full rounded-xl border py-3 pl-4 pr-10 text-sm text-gray-800 shadow-sm transition focus:outline-none focus:ring-4 ${
+                          formErrors.valor ? "border-red-300 focus:border-red-500 focus:ring-red-500/10" : "border-gray-200 hover:border-gray-300 focus:border-[#D32F2F] focus:ring-red-500/10"
+                        }`}
                       />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
-                        {form.tipo === "PORCENTAJE" ? "%" : "S/"}
-                      </span>
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-gray-400">{form.tipo === "PORCENTAJE" ? "%" : "S/"}</span>
                     </div>
+                    <FieldError error={formErrors.valor} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-gray-700 mb-2 font-bold text-sm">Vigencia desde *</label>
+                    <label className="mb-2 block text-sm font-bold text-gray-700">Vigencia desde *</label>
                     <input
                       type="date"
                       value={form.fechaInicio}
-                      onChange={e => setForm({ ...form, fechaInicio: e.target.value })}
-                      className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-[#D32F2F] transition-all shadow-sm hover:border-gray-300"
-                      style={{ fontSize: 14 }}
+                      onChange={(e) => setForm({ ...form, fechaInicio: e.target.value })}
+                      className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-800 shadow-sm transition focus:outline-none focus:ring-4 ${
+                        formErrors.fechaInicio ? "border-red-300 focus:border-red-500 focus:ring-red-500/10" : "border-gray-200 hover:border-gray-300 focus:border-[#D32F2F] focus:ring-red-500/10"
+                      }`}
                     />
+                    <FieldError error={formErrors.fechaInicio} />
                   </div>
                   <div>
-                    <label className="block text-gray-700 mb-2 font-bold text-sm">Vigencia hasta *</label>
+                    <label className="mb-2 block text-sm font-bold text-gray-700">Vigencia hasta *</label>
                     <input
                       type="date"
                       value={form.fechaFin}
-                      onChange={e => setForm({ ...form, fechaFin: e.target.value })}
-                      className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-[#D32F2F] transition-all shadow-sm hover:border-gray-300"
-                      style={{ fontSize: 14 }}
+                      onChange={(e) => setForm({ ...form, fechaFin: e.target.value })}
+                      className={`w-full rounded-xl border px-4 py-3 text-sm text-gray-800 shadow-sm transition focus:outline-none focus:ring-4 ${
+                        formErrors.fechaFin ? "border-red-300 focus:border-red-500 focus:ring-red-500/10" : "border-gray-200 hover:border-gray-300 focus:border-[#D32F2F] focus:ring-red-500/10"
+                      }`}
                     />
+                    <FieldError error={formErrors.fechaFin} />
                   </div>
                 </div>
 
-                <div className="p-5 bg-amber-50/50 border border-amber-200/50 rounded-2xl">
-                  <label className="block text-amber-900 mb-2 font-bold text-sm">
+                <div className="rounded-2xl border border-amber-200/50 bg-amber-50/50 p-5">
+                  <label className="mb-2 block text-sm font-bold text-amber-900">
                     Código de cupón <span className="font-normal opacity-70">(opcional)</span>
                   </label>
                   <input
                     value={form.codigoCupon}
-                    onChange={e => setForm({ ...form, codigoCupon: e.target.value.toUpperCase() })}
+                    onChange={(e) => setForm({ ...form, codigoCupon: e.target.value.toUpperCase() })}
                     placeholder="Ej: VERANO20"
                     maxLength={50}
-                    className="w-full border border-amber-200 rounded-xl px-4 py-3 bg-white text-amber-900 placeholder-amber-300 focus:outline-none focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 transition-all shadow-sm uppercase tracking-widest font-black"
-                    style={{ fontSize: 14 }}
+                    className={`w-full rounded-xl border px-4 py-3 text-sm font-black uppercase tracking-widest text-amber-900 shadow-sm transition focus:outline-none focus:ring-4 ${
+                      formErrors.codigoCupon ? "border-red-300 focus:border-red-500 focus:ring-red-500/10" : "border-amber-200 bg-white placeholder-amber-300 focus:border-amber-500 focus:ring-amber-500/20"
+                    }`}
                   />
-                  <p className="text-xs text-amber-700/70 mt-3 font-medium leading-relaxed">
-                    Si dejas esto vacío, el descuento se aplicará de forma automática en todos los pedidos durante la vigencia.
+                  <FieldError error={formErrors.codigoCupon} />
+                  <p className="mt-3 text-xs font-medium leading-relaxed text-amber-700/70">
+                    Si dejas esto vacío, el descuento se aplicará de forma automática durante la vigencia.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-100 bg-gray-50/50 shrink-0 flex gap-3">
-              <button onClick={() => { setShowForm(false); setForm(EMPTY_FORM); }}
-                className="flex-1 text-gray-600 bg-white border border-gray-200 font-bold py-3.5 px-6 rounded-xl hover:bg-gray-50 transition-all shadow-sm"
-                style={{ fontSize: 14 }}>
+            <div className="flex gap-3 border-t border-gray-100 bg-gray-50/50 p-6">
+              <button onClick={closeForm} className="flex-1 rounded-xl border border-gray-200 bg-white px-6 py-3.5 text-sm font-bold text-gray-600 shadow-sm transition hover:bg-gray-50">
                 Cancelar
               </button>
-              <button onClick={handleAdd} disabled={saving}
-                className="flex-1 bg-[#D32F2F] hover:bg-red-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-md shadow-red-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
-                style={{ fontSize: 14 }}>
-                {saving ? "Creando..." : "Crear Promoción"}
+              <button onClick={handleSave} disabled={saving} className="flex-1 rounded-xl bg-[#D32F2F] px-6 py-3.5 text-sm font-bold text-white shadow-md shadow-red-900/20 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70">
+                {saving ? "Guardando..." : editingPromo ? "Actualizar Promoción" : "Crear Promoción"}
               </button>
             </div>
           </div>
         </>
       )}
 
-      {/* Listado de promociones */}
       {promos.length === 0 ? (
-        <div className="bg-white rounded-3xl overflow-hidden p-16 text-center border border-gray-100" style={{ boxShadow: "0 10px 40px -10px rgba(0,0,0,0.08)" }}>
-          <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 border border-gray-100">
-            <Ticket className="w-10 h-10 text-gray-300" />
-          </div>
-          <h3 className="text-gray-900 font-extrabold text-xl mb-2">No hay promociones</h3>
-          <p className="text-gray-400 font-medium">Crea tu primera promoción para atraer más clientes.</p>
-        </div>
+        <AdminPanel>
+          <AdminEmptyState title="No hay promociones" description="Crea tu primera promoción para atraer más clientes." />
+        </AdminPanel>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {promos.map(p => (
-            <div key={p.id} className="bg-white rounded-3xl overflow-hidden relative group transition-all duration-300 hover:-translate-y-1" style={{ boxShadow: "0 10px 40px -10px rgba(0,0,0,0.08)" }}>
-              {/* Borde superior decorativo */}
-              <div className="h-1.5 w-full bg-gradient-to-r from-red-500 to-amber-500"></div>
-              
-              <div className="p-6 sm:p-8">
-                {/* Cabecera del Ticket */}
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-[#D32F2F]">
-                      <Megaphone className="w-5 h-5" />
+        <>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
+            {pagedPromos.map((p) => (
+              <AdminPanel key={p.id} className="relative overflow-hidden transition-all duration-300 hover:-translate-y-1">
+                <div className="h-1.5 w-full bg-gradient-to-r from-red-500 to-amber-500"></div>
+                <div className="p-6 sm:p-8">
+                  <div className="mb-6 flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-[#D32F2F]">
+                        <Megaphone className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="line-clamp-1 text-lg font-extrabold leading-tight text-gray-900" title={p.nombre}>
+                          {p.nombre}
+                        </h3>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-gray-900 font-extrabold text-lg leading-tight line-clamp-1" title={p.nombre}>{p.nombre}</h3>
+                    <AdminBooleanBadge active={!!p.activo} activeLabel="Activa" inactiveLabel="Inactiva" />
+                  </div>
+
+                  <div className="mb-4">
+                    <div className="flex items-baseline gap-1">
+                      {p.tipo === "PORCENTAJE" ? (
+                        <>
+                          <span className="text-4xl font-black text-gray-900">{p.valor}</span>
+                          <span className="text-2xl font-extrabold text-[#D32F2F]">% OFF</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-2xl font-extrabold text-[#D32F2F]">S/</span>
+                          <span className="text-4xl font-black text-gray-900">{p.valor}</span>
+                          <span className="ml-1 text-lg font-bold text-gray-400">OFF</span>
+                        </>
+                      )}
+                    </div>
+                    {p.descripcion && <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug text-gray-500">{p.descripcion}</p>}
+                  </div>
+
+                  <div className="mb-2 flex items-center gap-4 border-y border-gray-50 py-4 text-xs font-semibold text-gray-500">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="h-4 w-4 text-gray-300" />
+                      {p.fechaInicio}
+                    </div>
+                    <div className="text-gray-300">→</div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-4 w-4 text-gray-300" />
+                      {p.fechaFin}
                     </div>
                   </div>
-                  {/* Status Ping Badge */}
-                  {p.activo ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border border-green-200 bg-green-50 text-green-700">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                      </span>
-                      En Vivo
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border border-gray-200 bg-gray-50 text-gray-500">
-                      Terminada
-                    </span>
-                  )}
+
+                  <CouponCode code={p.codigoCupon} />
                 </div>
 
-                {/* Monto Hero */}
-                <div className="mb-4">
-                  <div className="flex items-baseline gap-1">
-                    {p.tipo === "PORCENTAJE" ? (
-                      <>
-                        <span className="text-4xl font-black text-gray-900">{p.valor}</span>
-                        <span className="text-2xl font-extrabold text-[#D32F2F]">% OFF</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-2xl font-extrabold text-[#D32F2F]">S/</span>
-                        <span className="text-4xl font-black text-gray-900">{p.valor}</span>
-                        <span className="text-lg font-bold text-gray-400 ml-1">OFF</span>
-                      </>
-                    )}
-                  </div>
-                  {p.descripcion && <p className="text-gray-500 text-sm font-medium mt-2 leading-snug line-clamp-2">{p.descripcion}</p>}
+                <div className="flex justify-end gap-2 border-t border-gray-50 bg-gray-50/50 px-6 py-4">
+                  <button onClick={() => openEdit(p)} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-500 transition hover:bg-blue-50 hover:text-blue-600">
+                    <Edit2 className="h-4 w-4" />
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => setPromoToDeactivate(p)}
+                    disabled={!p.activo}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                      p.activo ? "text-gray-500 hover:bg-red-50 hover:text-red-600" : "cursor-not-allowed text-gray-300"
+                    }`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {p.activo ? "Desactivar" : "Inactiva"}
+                  </button>
                 </div>
-
-                {/* Fechas */}
-                <div className="flex items-center gap-4 py-4 mb-2 border-y border-gray-50 text-xs font-semibold text-gray-500">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-gray-300" />
-                    {p.fechaInicio}
-                  </div>
-                  <div className="text-gray-300">→</div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-gray-300" />
-                    {p.fechaFin}
-                  </div>
-                </div>
-
-                {/* Cupón */}
-                <CouponCode code={p.codigoCupon} />
-
-              </div>
-              
-              {/* Pie del Ticket (Acciones) */}
-              <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-50 flex justify-end">
-                <button
-                  onClick={() => p.id && handleDelete(p.id)}
-                  disabled={!p.activo}
-                  className={`flex items-center gap-1.5 text-xs font-bold transition-all px-3 py-1.5 rounded-lg ${
-                    p.activo 
-                      ? "text-gray-400 hover:text-red-600 hover:bg-red-50" 
-                      : "text-gray-300 cursor-not-allowed"
-                  }`}
-                >
-                  <Trash2 className="w-4 h-4" /> 
-                  {p.activo ? "Desactivar promo" : "Inactiva"}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+              </AdminPanel>
+            ))}
+          </div>
+          <div className="mt-6">
+            <AdminPanel>
+              <AdminPagination page={page} totalPages={totalPages} onPageChange={setPage} />
+            </AdminPanel>
+          </div>
+        </>
       )}
     </div>
   );

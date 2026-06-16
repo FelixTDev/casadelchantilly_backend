@@ -46,8 +46,8 @@ public class ReclamoController {
     }
 
     @PutMapping("/{id}/resolver")
-    public ResponseEntity<ReclamoDTO> resolver(@PathVariable Integer id, @RequestBody Map<String, String> body) {
-        return ResponseEntity.ok(reclamoService.resolver(id, body.get("resolucion"), body.get("tipoSolucion")));
+    public ResponseEntity<ReclamoDTO> resolver(@PathVariable Integer id, @RequestBody Map<String, String> body, Authentication authentication) {
+        return ResponseEntity.ok(reclamoService.resolver(id, body.get("resolucion"), body.get("tipoSolucion"), obtenerUsuarioId(authentication)));
     }
 
     private Integer obtenerUsuarioId(Authentication authentication) {

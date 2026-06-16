@@ -1,5 +1,6 @@
 package com.integrador.chantilly.shared.security;
 
+import com.integrador.chantilly.auth.security.AuthCookieService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,13 +20,16 @@ public class JwtFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final UserDetailsServiceImpl userDetailsService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final AuthCookieService authCookieService;
 
     public JwtFilter(JwtUtil jwtUtil,
                      UserDetailsServiceImpl userDetailsService,
-                     TokenBlacklistService tokenBlacklistService) {
+                     TokenBlacklistService tokenBlacklistService,
+                     AuthCookieService authCookieService) {
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
         this.tokenBlacklistService = tokenBlacklistService;
+        this.authCookieService = authCookieService;
     }
 
     @Override
@@ -33,13 +37,11 @@ public class JwtFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        final String jwt = resolveJwt(request);
+        if (jwt == null || jwt.isBlank()) {
             filterChain.doFilter(request, response);
             return;
         }
-
-        final String jwt = authHeader.substring(7);
         if (tokenBlacklistService.isBlacklisted(jwt)) {
             filterChain.doFilter(request, response);
             return;
@@ -68,5 +70,19 @@ public class JwtFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private String resolveJwt(HttpServletRequest request) {
+        String cookieToken = authCookieService.resolveToken(request);
+        if (cookieToken != null && !cookieToken.isBlank()) {
+            return cookieToken;
+        }
+
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+
+        return null;
     }
 }
