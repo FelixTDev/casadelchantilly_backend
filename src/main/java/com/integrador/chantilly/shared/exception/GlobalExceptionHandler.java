@@ -51,6 +51,9 @@ public class GlobalExceptionHandler {
         if (normalized.contains("no encontrado")) {
             return new RuntimeErrorDescriptor(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "No encontramos la información solicitada.");
         }
+        if (normalized.contains("credenciales invalid")) {
+            return new RuntimeErrorDescriptor(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Correo o contraseña incorrectos.");
+        }
         if (normalized.contains("demasiados intentos")) {
             return new RuntimeErrorDescriptor(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED", "Has realizado demasiados intentos. Espera unos minutos e inténtalo nuevamente.");
         }
