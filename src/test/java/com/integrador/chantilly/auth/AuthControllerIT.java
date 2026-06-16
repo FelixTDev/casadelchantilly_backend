@@ -127,7 +127,8 @@ class AuthControllerIT {
 
         for (int attempt = 0; attempt < 5; attempt++) {
             mockMvc.perform(loginRequest)
-                    .andExpect(status().isUnprocessableEntity());
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
         }
 
         mockMvc.perform(loginRequest)
