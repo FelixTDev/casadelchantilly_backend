@@ -9,24 +9,6 @@ on:
   pull_request:
 
 jobs:
-  frontend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: chantilly-frontend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: chantilly-frontend/package-lock.json
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
-
   backend:
     runs-on: ubuntu-latest
     defaults:
@@ -40,45 +22,3 @@ jobs:
           java-version: 21
           cache: maven
       - run: ./mvnw verify
-
-  e2e:
-    runs-on: ubuntu-latest
-    needs:
-      - frontend
-      - backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: chantilly-frontend/package-lock.json
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-          cache: maven
-      - name: Install frontend deps
-        working-directory: chantilly-frontend
-        run: npm ci
-      - name: Install Playwright browsers
-        working-directory: chantilly-frontend
-        run: npx playwright install --with-deps chromium
-      - name: Start backend with H2 test profile
-        working-directory: chantilly-backend
-        run: |
-          ./mvnw spring-boot:run -Dspring-boot.run.profiles=ci > ../backend-e2e.log 2>&1 &
-      - name: Wait for backend health
-        run: |
-          for i in {1..60}; do
-            if curl -fsS http://127.0.0.1:8081/actuator/health > /dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Backend did not become healthy in time"
-          cat backend-e2e.log
-          exit 1
-      - name: Run E2E suite
-        working-directory: chantilly-frontend
-        run: npm run test:e2e

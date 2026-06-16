@@ -8,12 +8,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Frontend
-chantilly-frontend/node_modules/
-chantilly-frontend/dist/
-chantilly-frontend/.vite/
-chantilly-frontend/test-results/
-
 # Backend
 chantilly-backend/target/
 
