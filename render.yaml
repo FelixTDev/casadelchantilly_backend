@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: casadelchantilly-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SPRING_FLYWAY_ENABLED
+        value: false
+      - key: APP_AUTH_COOKIE_SECURE
+        value: true
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: APP_CORS_ALLOWED_ORIGIN_PATTERNS
+        sync: false

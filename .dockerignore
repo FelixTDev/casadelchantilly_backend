@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+.vscode
+target
+output
+backend-dev.err.log
+backend-dev.out.log
+backend-live.log
+backend-root.err.log
+backend-root.out.log
+backend-run.err.log
+backend-run.log
+*.log
