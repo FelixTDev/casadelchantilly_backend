@@ -6,7 +6,9 @@ import com.integrador.chantilly.shared.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
@@ -28,11 +30,17 @@ public class SecurityConfig {
     private final JwtFilter jwtFilter;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
+    private final boolean secureCsrfCookie;
+    private final String csrfCookieSameSite;
 
     public SecurityConfig(JwtFilter jwtFilter,
+                          @Value("${app.csrf.cookie.secure:false}") boolean secureCsrfCookie,
+                          @Value("${app.csrf.cookie.same-site:Lax}") String csrfCookieSameSite,
                           RestAuthenticationEntryPoint authenticationEntryPoint,
                           RestAccessDeniedHandler accessDeniedHandler) {
         this.jwtFilter = jwtFilter;
+        this.secureCsrfCookie = secureCsrfCookie;
+        this.csrfCookieSameSite = csrfCookieSameSite;
         this.authenticationEntryPoint = authenticationEntryPoint;
         this.accessDeniedHandler = accessDeniedHandler;
     }
@@ -49,9 +57,14 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfTokenRepository.setCookieCustomizer(builder -> builder
+                .sameSite(csrfCookieSameSite)
+                .secure(secureCsrfCookie));
+
         http
                 .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRepository(csrfTokenRepository)
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                         .ignoringRequestMatchers("/actuator/**")
                 )
