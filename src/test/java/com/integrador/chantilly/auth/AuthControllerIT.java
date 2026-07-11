@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -28,6 +29,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@TestPropertySource(properties = {
+        "app.auth.cookie.same-site=None",
+        "app.auth.cookie.secure=true"
+})
 class AuthControllerIT {
 
     @Autowired
@@ -74,6 +79,9 @@ class AuthControllerIT {
                 .andExpect(jsonPath("$.token").isEmpty())
                 .andExpect(jsonPath("$.rol").value("CLIENTE"))
                 .andExpect(cookie().exists("CHANTILLY_ACCESS_TOKEN"))
+                .andExpect(cookie().value("CHANTILLY_ACCESS_TOKEN", org.hamcrest.Matchers.not(org.hamcrest.Matchers.isEmptyOrNullString())))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Set-Cookie", containsString("SameSite=None")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Set-Cookie", containsString("Secure")))
                 .andReturn();
 
         String authCookie = loginResult.getResponse().getCookie("CHANTILLY_ACCESS_TOKEN").getValue();

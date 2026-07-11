@@ -15,6 +15,9 @@ public class AuthCookieService {
     @Value("${app.auth.cookie.secure:false}")
     private boolean secureCookie;
 
+    @Value("${app.auth.cookie.same-site:Lax}")
+    private String sameSite;
+
     @Value("${jwt.expiration:86400000}")
     private long expirationMillis;
 
@@ -22,7 +25,7 @@ public class AuthCookieService {
         ResponseCookie cookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, token)
                 .httpOnly(true)
                 .secure(secureCookie)
-                .sameSite("Lax")
+                .sameSite(sameSite)
                 .path("/")
                 .maxAge(expirationMillis / 1000)
                 .build();
@@ -33,7 +36,7 @@ public class AuthCookieService {
         ResponseCookie cookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, "")
                 .httpOnly(true)
                 .secure(secureCookie)
-                .sameSite("Lax")
+                .sameSite(sameSite)
                 .path("/")
                 .maxAge(0)
                 .build();
