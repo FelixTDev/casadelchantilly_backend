@@ -23,10 +23,19 @@ public class CorsConfig {
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
                 .toList());
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "Origin",
+                "X-Requested-With",
+                "X-XSRF-TOKEN",
+                "X-CSRF-TOKEN"
+        ));
         configuration.setAllowCredentials(true);
         configuration.setExposedHeaders(List.of("Location"));
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
